@@ -1,41 +1,93 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Redballfinance</title>
-  <link rel="stylesheet" href="style.css">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Red Ball Finance – Paper Portfolio</title>
+  <meta name="description" content="I track a transparent paper portfolio and write clear, honest reports on every stock I add—what I saw, why I bought, and what would make me sell." />
+  <link rel="preconnect" href="https://unpkg.com">
+  <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <header class="navbar">
-    <div class="logo">🔷 Redballfinance</div>
-    <nav>
-      <ul>
-        <li><a href="#">Portfolio</a></li>
-        <li><a href="#">About</a></li>
-        <li><a href="#">Blog</a></li>
-        <li><a href="#">Support</a></li>
-      </ul>
-    </nav>
-    <a href="#" class="cta">View portfolio</a>
+  <header class="site-header">
+    <div class="container header-inner">
+      <img src="assets/logo.svg" alt="Logo" class="logo" />
+      <nav class="nav">
+        <a href="index.html" class="active">Portfolio</a>
+        <a href="#how-it-works">About</a>
+      </nav>
+    </div>
   </header>
 
-  <section class="hero">
-    <div class="hero-text">
+  <main class="container">
+    <section class="hero">
       <h1>
-        <span>See stocks I'm</span><br>
-        <span>investing in... and</span><br>
-        <span>why.</span>
+        See stocks I'm<br />
+        investing in...<br />
+        why.
       </h1>
-    </div>
-    <div class="hero-side">
-      <p>I track my top picks, share real-time charts, and explain my rationale.</p>
-      <div class="buttons">
-        <a href="#" class="btn primary">View portfolio</a>
-        <a href="#" class="btn secondary">Recent picks</a>
+      <p class="hero-sub">
+        I track my top picks, share performance, and publish the exact rationale behind each buy. 
+        100% transparent. Paper portfolio. Real thinking.
+      </p>
+      <div class="hero-cta">
+        <a class="btn primary" href="#portfolio">View portfolio</a>
+        <a class="btn ghost" href="#recent">Recent picks</a>
       </div>
+    </section>
+
+    <section id="portfolio" class="card">
+      <div class="section-head">
+        <h2>Portfolio</h2>
+        <div class="filters">
+          <input id="search" type="search" placeholder="Search by ticker or name…" />
+          <select id="tagFilter">
+            <option value="">All tags</option>
+          </select>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table id="portfolioTable">
+          <thead>
+            <tr>
+              <th>Ticker</th>
+              <th>Company</th>
+              <th>Buy Date</th>
+              <th>Qty</th>
+              <th>Buy Price</th>
+              <th>Cost</th>
+              <th>Tags</th>
+              <th>Report</th>
+            </tr>
+          </thead>
+          <tbody><!-- filled by JS --></tbody>
+        </table>
+      </div>
+      <p class="note">Prices are manually tracked for now; I’ll add live prices later.</p>
+    </section>
+
+    <section id="recent" class="card">
+      <h2>Recent picks</h2>
+      <div id="recentGrid" class="grid"><!-- filled by JS --></div>
+    </section>
+
+    <section id="how-it-works" class="card">
+      <h2>What this is</h2>
+      <ol class="bullets">
+        <li>Every position has a written thesis (posted as a markdown report).</li>
+        <li>I track cost basis, position size, and updates over time.</li>
+        <li>It’s a paper portfolio—purpose is learning, clarity, and accountability.</li>
+      </ol>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <span>© <span id="year"></span> Red Ball Finance</span>
+      <a href="https://github.com" rel="noopener">Source</a>
     </div>
-    <div class="glow-background"></div>
-  </section>
+  </footer>
+
+  <script src="scripts/main.js" defer></script>
 </body>
 </html>
