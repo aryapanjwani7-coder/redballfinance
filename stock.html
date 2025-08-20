@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title id="titleTag">Stock Report</title>
+  <meta name="description" content="Detailed write-up for a position in my paper portfolio." />
+  <link rel="stylesheet" href="styles.css" />
+  <!-- Marked.js for Markdown rendering -->
+  <script src="https://unpkg.com/marked/marked.min.js"></script>
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <a href="index.html"><img src="assets/logo.svg" alt="Logo" class="logo" /></a>
+      <nav class="nav">
+        <a href="index.html">Portfolio</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="card">
+      <div class="stock-header">
+        <div>
+          <h1 id="stockName">Loading…</h1>
+          <div class="meta-row">
+            <span class="meta" id="ticker"></span>
+            <span class="dot">•</span>
+            <span class="meta" id="buyDate"></span>
+            <span class="dot">•</span>
+            <span class="meta" id="tags"></span>
+          </div>
+        </div>
+      </div>
+      <hr class="divider" />
+      <article id="report" class="prose">Loading report…</article>
+    </section>
+
+    <section class="card soft">
+      <h3>Position snapshot</h3>
+      <div class="kv">
+        <div><span>Qty</span><strong id="qty"></strong></div>
+        <div><span>Buy Price</span><strong id="buyPrice"></strong></div>
+        <div><span>Cost</span><strong id="cost"></strong></div>
+      </div>
+      <p class="note" id="note"></p>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <span>© <span id="year"></span> Red Ball Finance</span>
+      <a href="index.html">Back to portfolio</a>
+    </div>
+  </footer>
+
+  <script src="scripts/stock.js" defer></script>
+</body>
+</html>
