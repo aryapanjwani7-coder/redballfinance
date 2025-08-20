@@ -1,0 +1,24 @@
+[
+  {
+    "ticker": "COALINDIA",
+    "name": "Coal India Ltd",
+    "slug": "coal-india",
+    "buy_date": "2025-08-10",
+    "qty": 100,
+    "buy_price": 480,
+    "tags": ["Energy", "Dividend", "Largecap"],
+    "thesis_short": "Counter-cyclical cash generator with policy tailwinds and strong FCF.",
+    "note": "Watching e-auction realizations and FSA volumes."
+  },
+  {
+    "ticker": "KIRLOSBROS",
+    "name": "Kirloskar Brothers",
+    "slug": "kirloskar-brothers",
+    "buy_date": "2025-08-15",
+    "qty": 40,
+    "buy_price": 1650,
+    "tags": ["Capital Goods", "Infra", "Exports"],
+    "thesis_short": "Pumps leader leveraged to India’s infra cycle; order book visibility improving.",
+    "note": "Monitoring margin sustainability and export mix."
+  }
+]
