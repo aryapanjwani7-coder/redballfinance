@@ -1,0 +1,42 @@
+name: Fetch Prices & Build NAV
+
+on:
+  schedule:
+    - cron: "15 21 * * *"   # daily ~5:15 AM SGT (adjust if you like)
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  build-data:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install yfinance pandas numpy
+
+      - name: Fetch quotes & build NAV
+        run: |
+          python scripts/ci/fetch_prices.py
+
+      - name: Commit changes
+        run: |
+          if [[ -n $(git status --porcelain) ]]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add data/quotes data/nav.json
+            git commit -m "chore(data): update quotes & nav [skip ci]"
+            git push
+          else
+            echo "No changes to commit."
+          fi
