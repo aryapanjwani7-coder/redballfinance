@@ -38,11 +38,11 @@ jobs:
           fi
           sudo apt-get update && sudo apt-get install -y jq
           if ! jq . data/stocks.json > /dev/null 2>&1; then
-            echo "::error::data/stocks.json is not valid JSON (trailing commas? comments?)"
+            echo "::error::data/stocks.json is not valid JSON (trailing commas?)"
             exit 1
           fi
           echo "stocks.json OK:"
-          head -n 60 data/stocks.json
+          head -n 80 data/stocks.json
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -60,32 +60,35 @@ jobs:
           pip install --verbose yfinance==0.2.43 pandas==2.2.2 numpy==1.26.4
 
       - name: Smoke test yfinance fetch (FX + first symbol)
-      run: |
-        python - << 'PY'
-        import json, sys
-        import yfinance as yf
-        from pathlib import Path
-        p = Path("data/stocks.json")
-        stocks = json.loads(p.read_text())
-        sym = (stocks[0].get("symbol") or stocks[0].get("ticker"))
-        print("Smoke test for first symbol:", sym)
-    
-        def rows(t):
-          df = yf.Ticker(t).history(period="1mo", interval="1d")
-          print(t, "rows:", len(df))
-          return len(df)
-    
-        # Try FX fallbacks in order
-        fx_ok = rows("INR=X") or rows("USDINR=X")
-        if not fx_ok:
-          print("WARNING: No FX rows for INR=X or USDINR=X (will fallback inside script)")
-    
-        # Symbol should fetch something
-        if rows(sym) == 0:
-          print("ERROR: no rows for", sym)
-          sys.exit(1)
-        PY
+        run: |
+          python - << 'PY'
+          import json, sys
+          import yfinance as yf
+          from pathlib import Path
+          p = Path("data/stocks.json")
+          stocks = json.loads(p.read_text())
+          sym = (stocks[0].get("symbol") or stocks[0].get("ticker"))
+          print("Smoke test for first symbol:", sym)
 
+          def rows(t):
+            try:
+              df = yf.Ticker(t).history(period="1mo", interval="1d")
+              print(t, "rows:", len(df))
+              return len(df)
+            except Exception as e:
+              print("ERROR fetching", t, "->", e)
+              return 0
+
+          # FX fallbacks (do not fail if both are empty; main script will warn and proceed)
+          fx_rows = rows("INR=X")
+          if fx_rows == 0:
+            fx_rows = rows("USDINR=X")
+
+          # Ensure the first equity symbol returns something
+          if rows(sym) == 0:
+            print("::error::No rows for", sym)
+            sys.exit(1)
+          PY
 
       - name: Verify fetch_prices.py exists
         run: |
@@ -93,11 +96,14 @@ jobs:
             echo "::error::scripts/ci/fetch_prices.py not found (wrong path?)."
             exit 1
           fi
-          sed -n '1,120p' scripts/ci/fetch_prices.py
+          sed -n '1,140p' scripts/ci/fetch_prices.py
 
       - name: Run fetch_prices.py (debug)
         env:
+          # Set your base currency here. If Yahoo FX is flaky, temporarily set to INR.
+          BASE_CURRENCY: "USD"         # or "INR"
           STARTING_CASH_USD: "10000000"
+          YEARS_BACK: "5"
         run: |
           set -euo pipefail
           python -u scripts/ci/fetch_prices.py
@@ -109,7 +115,7 @@ jobs:
           echo "nav_summary.json:"
           cat data/nav_summary.json || true
           echo "nav.json head:"
-          head -c 1000 data/nav.json || true
+          head -c 1200 data/nav.json || true
           echo
 
       - name: Commit changes (if any)
