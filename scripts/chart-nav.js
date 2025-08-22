@@ -1,15 +1,18 @@
 async function loadJSON(path){
   const res = await fetch(path + "?cb=" + Date.now());
-  if(!res.ok) throw new Error("Failed to load " + path);
+  if(!res.ok) throw new Error("Fetch failed " + path);
   return res.json();
 }
 
-function fmtDateISO(d){ return new Date(d); }
+function toDate(d){ return new Date(d); }
 
 async function initNAV(){
+  const note = document.getElementById("navNote");
   try{
     const nav = await loadJSON("data/nav.json");
-    const labels = nav.map(r => fmtDateISO(r.date));
+    if(!Array.isArray(nav) || nav.length === 0) throw new Error("Empty nav.json");
+
+    const labels = nav.map(r => toDate(r.date));
     const series = nav.map(r => r.nav_index ?? null);
 
     const ctx = document.getElementById("navChart").getContext("2d");
@@ -30,15 +33,15 @@ async function initNAV(){
         interaction: { mode: "index", intersect: false },
         scales: {
           x: { type: "time", time: { unit: "month" }, ticks: { maxTicksLimit: 8 } },
-          y: { ticks: { callback: v => v.toFixed ? v.toFixed(0) : v } }
+          y: { beginAtZero: false, ticks: { callback: v => Math.round(v) } }
         },
         plugins: { legend: { display: false } }
       }
     });
+    if (note) note.textContent = "Indexed to 100 at first buy date. Auto-updates daily.";
   }catch(e){
     console.error(e);
-    const el = document.getElementById("navChart");
-    el.insertAdjacentHTML("afterend", `<p class="note">NAV data not available yet.</p>`);
+    if (note) note.textContent = "NAV data not available yet. If this is a fresh setup, generate data once (see steps below).";
   }
 }
 
