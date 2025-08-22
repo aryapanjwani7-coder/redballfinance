@@ -17,36 +17,39 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Show tree (top-level)
+      - name: Show tree
         run: |
           pwd
           ls -la
-          echo "Default branch: ${{ github.ref }}"
+          echo "Default ref: ${{ github.ref }}"
 
-      - name: Ensure expected paths exist
+      - name: Ensure paths
         run: |
           mkdir -p data/quotes scripts/ci
           ls -la data || true
-          ls -la data/quotes || true
           ls -la scripts || true
           ls -la scripts/ci || true
 
-      - name: Print stocks.json (so we know it exists)
+      - name: Check stocks.json exists & is valid JSON
         run: |
           if [ ! -f data/stocks.json ]; then
-            echo "::error::Missing data/stocks.json. Create it and commit."
+            echo "::error::Missing data/stocks.json"
             exit 1
           fi
-          echo "===== data/stocks.json ====="
-          cat data/stocks.json || true
-          echo "============================"
+          sudo apt-get update && sudo apt-get install -y jq
+          if ! jq . data/stocks.json > /dev/null 2>&1; then
+            echo "::error::data/stocks.json is not valid JSON (trailing commas? comments?)"
+            exit 1
+          fi
+          echo "stocks.json OK:"
+          head -n 60 data/stocks.json
 
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      - name: Python & pip versions
+      - name: Versions
         run: |
           python --version
           pip --version
@@ -54,33 +57,52 @@ jobs:
       - name: Install deps
         run: |
           python -m pip install --upgrade pip
-          pip install yfinance==0.2.43 pandas==2.2.2 numpy==1.26.4
+          pip install --verbose yfinance==0.2.43 pandas==2.2.2 numpy==1.26.4
+
+      - name: Smoke test yfinance fetch (USDINR + first symbol)
+        run: |
+          python - << 'PY'
+          import json, sys
+          import yfinance as yf
+          from pathlib import Path
+          p = Path("data/stocks.json")
+          stocks = json.loads(p.read_text())
+          sym = (stocks[0].get("symbol") or stocks[0].get("ticker"))
+          print("Smoke test for:", sym)
+          for test in ["USDINR=X", sym]:
+              try:
+                  df = yf.Ticker(test).history(period="1mo", interval="1d")
+                  print(test, "rows:", len(df))
+                  assert len(df) > 0, f"No rows for {test}"
+              except Exception as e:
+                  print("ERROR fetching", test, "->", e)
+                  sys.exit(1)
+          PY
 
       - name: Verify fetch_prices.py exists
         run: |
           if [ ! -f scripts/ci/fetch_prices.py ]; then
-            echo "::error::scripts/ci/fetch_prices.py not found."
-            echo "Create it at scripts/ci/fetch_prices.py (path matters)."
+            echo "::error::scripts/ci/fetch_prices.py not found (wrong path?)."
             exit 1
           fi
-          sed -n '1,80p' scripts/ci/fetch_prices.py || true
+          sed -n '1,120p' scripts/ci/fetch_prices.py
 
-      - name: Run fetch_prices.py (with debug)
+      - name: Run fetch_prices.py (debug)
         env:
           STARTING_CASH_USD: "10000000"
         run: |
-          set -e
+          set -euo pipefail
           python -u scripts/ci/fetch_prices.py
 
       - name: Show generated files
         run: |
-          echo "Generated quotes:"
+          echo "quotes dir:"
           ls -la data/quotes || true
-          echo "Head of nav.json:"
-          head -c 1000 data/nav.json || true
-          echo
           echo "nav_summary.json:"
           cat data/nav_summary.json || true
+          echo "nav.json head:"
+          head -c 1000 data/nav.json || true
+          echo
 
       - name: Commit changes (if any)
         run: |
@@ -89,7 +111,8 @@ jobs:
             git config user.email "github-actions[bot]@users.noreply.github.com"
             git add data/quotes data/nav.json data/nav_summary.json
             git commit -m "chore(data): update quotes & nav [skip ci]" || true
-            git push
+            # If branch is protected, don't fail the job:
+            git push || echo "::warning::Push failed (protected branch). Data was generated but not pushed."
           else
             echo "No changes to commit."
           fi
