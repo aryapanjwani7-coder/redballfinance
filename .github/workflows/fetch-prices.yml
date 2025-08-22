@@ -1,9 +1,9 @@
-name: Fetch Prices & Build NAV
+name: Fetch Prices & Build NAV (debug)
 
 on:
   schedule:
-    - cron: "15 21 * * *"   # daily ~5:15 AM SGT (adjust if you like)
-  workflow_dispatch: {}
+    - cron: "15 21 * * *"   # daily ~05:15 SGT
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -14,28 +14,81 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Show tree (top-level)
+        run: |
+          pwd
+          ls -la
+          echo "Default branch: ${{ github.ref }}"
+
+      - name: Ensure expected paths exist
+        run: |
+          mkdir -p data/quotes scripts/ci
+          ls -la data || true
+          ls -la data/quotes || true
+          ls -la scripts || true
+          ls -la scripts/ci || true
+
+      - name: Print stocks.json (so we know it exists)
+        run: |
+          if [ ! -f data/stocks.json ]; then
+            echo "::error::Missing data/stocks.json. Create it and commit."
+            exit 1
+          fi
+          echo "===== data/stocks.json ====="
+          cat data/stocks.json || true
+          echo "============================"
 
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
+      - name: Python & pip versions
+        run: |
+          python --version
+          pip --version
+
       - name: Install deps
         run: |
           python -m pip install --upgrade pip
-          pip install yfinance pandas numpy
+          pip install yfinance==0.2.43 pandas==2.2.2 numpy==1.26.4
 
-      - name: Fetch quotes & build NAV
+      - name: Verify fetch_prices.py exists
         run: |
-          python scripts/ci/fetch_prices.py
+          if [ ! -f scripts/ci/fetch_prices.py ]; then
+            echo "::error::scripts/ci/fetch_prices.py not found."
+            echo "Create it at scripts/ci/fetch_prices.py (path matters)."
+            exit 1
+          fi
+          sed -n '1,80p' scripts/ci/fetch_prices.py || true
 
-      - name: Commit changes
+      - name: Run fetch_prices.py (with debug)
+        env:
+          STARTING_CASH_USD: "10000000"
+        run: |
+          set -e
+          python -u scripts/ci/fetch_prices.py
+
+      - name: Show generated files
+        run: |
+          echo "Generated quotes:"
+          ls -la data/quotes || true
+          echo "Head of nav.json:"
+          head -c 1000 data/nav.json || true
+          echo
+          echo "nav_summary.json:"
+          cat data/nav_summary.json || true
+
+      - name: Commit changes (if any)
         run: |
           if [[ -n $(git status --porcelain) ]]; then
             git config user.name "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"
-            git add data/quotes data/nav.json
-            git commit -m "chore(data): update quotes & nav [skip ci]"
+            git add data/quotes data/nav.json data/nav_summary.json
+            git commit -m "chore(data): update quotes & nav [skip ci]" || true
             git push
           else
             echo "No changes to commit."
