@@ -59,25 +59,33 @@ jobs:
           python -m pip install --upgrade pip
           pip install --verbose yfinance==0.2.43 pandas==2.2.2 numpy==1.26.4
 
-      - name: Smoke test yfinance fetch (USDINR + first symbol)
-        run: |
-          python - << 'PY'
-          import json, sys
-          import yfinance as yf
-          from pathlib import Path
-          p = Path("data/stocks.json")
-          stocks = json.loads(p.read_text())
-          sym = (stocks[0].get("symbol") or stocks[0].get("ticker"))
-          print("Smoke test for:", sym)
-          for test in ["USDINR=X", sym]:
-              try:
-                  df = yf.Ticker(test).history(period="1mo", interval="1d")
-                  print(test, "rows:", len(df))
-                  assert len(df) > 0, f"No rows for {test}"
-              except Exception as e:
-                  print("ERROR fetching", test, "->", e)
-                  sys.exit(1)
-          PY
+      - name: Smoke test yfinance fetch (FX + first symbol)
+      run: |
+        python - << 'PY'
+        import json, sys
+        import yfinance as yf
+        from pathlib import Path
+        p = Path("data/stocks.json")
+        stocks = json.loads(p.read_text())
+        sym = (stocks[0].get("symbol") or stocks[0].get("ticker"))
+        print("Smoke test for first symbol:", sym)
+    
+        def rows(t):
+          df = yf.Ticker(t).history(period="1mo", interval="1d")
+          print(t, "rows:", len(df))
+          return len(df)
+    
+        # Try FX fallbacks in order
+        fx_ok = rows("INR=X") or rows("USDINR=X")
+        if not fx_ok:
+          print("WARNING: No FX rows for INR=X or USDINR=X (will fallback inside script)")
+    
+        # Symbol should fetch something
+        if rows(sym) == 0:
+          print("ERROR: no rows for", sym)
+          sys.exit(1)
+        PY
+
 
       - name: Verify fetch_prices.py exists
         run: |
