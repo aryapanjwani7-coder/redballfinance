@@ -1,4 +1,4 @@
-name: Fetch Prices & Build NAV (Finnhub)
+name: Fetch Prices & Build NAV (Google Sheets)
 
 on:
   schedule:
@@ -54,16 +54,14 @@ jobs:
             echo "::error::scripts/ci/fetch_prices.py not found (path must be scripts/ci/fetch_prices.py)"
             exit 1
           fi
-          sed -n '1,160p' scripts/ci/fetch_prices.py
+          sed -n '1,220p' scripts/ci/fetch_prices.py
 
       - name: Run fetch_prices.py
         env:
-          FINNHUB_KEY: ${{ secrets.FINNHUB_KEY }}
-          # Keep INR for now (no FX). Switch to USD later if desired.
-          BASE_CURRENCY: "INR"
-          STARTING_CASH: "10000000"    # 10M in INR if BASE_CURRENCY=INR; in USD if USD
+          SHEET_ID: ${{ secrets.SHEET_ID }}
+          BASE_CURRENCY: "INR"        # INR means no FX. Switch to "USD" later if you add a USDINR tab + conversion.
+          STARTING_CASH: "10000000"   # 10M (interpreted in BASE_CURRENCY)
           YEARS_BACK: "5"
-          FH_REQS_PER_MIN: "50"
         run: |
           set -euo pipefail
           python -u scripts/ci/fetch_prices.py
