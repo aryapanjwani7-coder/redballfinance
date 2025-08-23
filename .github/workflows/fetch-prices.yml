@@ -59,7 +59,7 @@ jobs:
       - name: Run fetch_prices.py
         env:
           SHEET_ID: ${{ secrets.SHEET_ID }}
-          BASE_CURRENCY: "INR"        # INR means no FX. Switch to "USD" later if you add a USDINR tab + conversion.
+          BASE_CURRENCY: "USD"        
           STARTING_CASH: "10000000"   # 10M (interpreted in BASE_CURRENCY)
           YEARS_BACK: "5"
         run: |
