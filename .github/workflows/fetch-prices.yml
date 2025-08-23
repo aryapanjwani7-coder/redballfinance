@@ -1,4 +1,4 @@
-name: Fetch Prices & Build NAV (Twelve Data)
+name: Fetch Prices & Build NAV (Finnhub)
 
 on:
   schedule:
@@ -54,15 +54,16 @@ jobs:
             echo "::error::scripts/ci/fetch_prices.py not found (path must be scripts/ci/fetch_prices.py)"
             exit 1
           fi
-          sed -n '1,140p' scripts/ci/fetch_prices.py
+          sed -n '1,160p' scripts/ci/fetch_prices.py
 
       - name: Run fetch_prices.py
         env:
-          TWELVE_DATA_KEY: ${{ secrets.TWELVE_DATA_KEY }}
-          BASE_CURRENCY: "USD"          # set to "INR" if you prefer INR NAV
-          STARTING_CASH_USD: "10000000" # interpreted as INR if BASE_CURRENCY=INR
+          FINNHUB_KEY: ${{ secrets.FINNHUB_KEY }}
+          # Keep INR for now (no FX). Switch to USD later if desired.
+          BASE_CURRENCY: "INR"
+          STARTING_CASH: "10000000"    # 10M in INR if BASE_CURRENCY=INR; in USD if USD
           YEARS_BACK: "5"
-          TD_REQ_PER_MIN: "8"
+          FH_REQS_PER_MIN: "50"
         run: |
           set -euo pipefail
           python -u scripts/ci/fetch_prices.py
