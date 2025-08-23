@@ -6,7 +6,7 @@ import numpy as np
 import requests
 
 # ================== CONFIG ==================
-BASE_CURRENCY = os.getenv("BASE_CURRENCY", "INR").upper()  # keep INR (no FX). Switch to USD later if you add USDINR tab.
+BASE_CURRENCY = os.getenv("BASE_CURRENCY", "USD").upper()  # We'll run with USD
 STARTING_CASH = float(os.getenv("STARTING_CASH", os.getenv("STARTING_CASH_USD", "10000000")))
 YEARS_BACK = int(os.getenv("YEARS_BACK", "5"))
 SHEET_ID = os.getenv("SHEET_ID", "").strip()
@@ -33,25 +33,34 @@ def tab_name_for_symbol(symbol: str) -> str:
     return (symbol or "").upper().replace(".", "_")
 
 def fetch_sheet_csv(sheet_id: str, sheet_tab: str) -> pd.DataFrame:
-    # Google Sheets CSV export endpoint for a given tab
+    # Export a single tab as CSV
     url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet={quote(sheet_tab)}"
     r = requests.get(url, timeout=60)
     if r.status_code != 200:
         raise RuntimeError(f"HTTP {r.status_code} for tab {sheet_tab}")
-    # Expected CSV columns: Date, Close (from GOOGLEFINANCE)
-    df = pd.read_csv(pd.compat.StringIO(r.text))
-    # Some locales label columns differently; normalize by position
+    # Parse CSV -> expect Date, Close
+    try:
+        df = pd.read_csv(pd.compat.StringIO(r.text))
+    except Exception:
+        # pandas 2.2 deprecated compat.StringIO; fallback:
+        from io import StringIO
+        df = pd.read_csv(StringIO(r.text))
     if df.shape[1] < 2:
         return pd.DataFrame(columns=["date","close"])
     df = df.rename(columns={df.columns[0]:"date", df.columns[1]:"close"})
-    # clean
     df["date"] = pd.to_datetime(df["date"], errors="coerce").dt.date.astype("string")
     df["close"] = pd.to_numeric(df["close"], errors="coerce")
     df = df.dropna().sort_values("date")
-    # clip to YEARS_BACK
+    # clip window
     start_date = (dt.date.today() - dt.timedelta(days=YEARS_BACK*365+30)).isoformat()
     df = df[df["date"] >= start_date]
     return df[["date","close"]]
+
+def local_currency(symbol: str) -> str:
+    s = (symbol or "").upper()
+    if s.endswith(".NS") or s.endswith(".BO"):
+        return "INR"
+    return "USD"
 
 def load_stocks() -> list:
     if not stocks_json.exists():
@@ -86,6 +95,9 @@ def main():
     print(f"[info] STARTING_CASH={STARTING_CASH:,.2f}")
     print(f"[info] YEARS_BACK={YEARS_BACK}")
 
+    if BASE_CURRENCY != "USD":
+        print("[warn] This script is intended for USD base; running with", BASE_CURRENCY)
+
     stocks = load_stocks()
     symbols = []
     for s in stocks:
@@ -94,11 +106,10 @@ def main():
             symbols.append(sym)
         else:
             print("[warn] skipping stock without symbol/ticker:", s)
-
     if not symbols:
         die("no usable symbols in data/stocks.json")
 
-    # --- Fetch quotes from Google Sheet tabs ---
+    # --- Fetch quotes for each stock from its tab ---
     price_map = {}
     all_dates = set()
     for sym in symbols:
@@ -117,6 +128,17 @@ def main():
     if not all_dates:
         die("no quote data fetched from Google Sheet (check publish-to-web, tab names, and formulas)")
 
+    # --- Fetch USDINR FX from USDINR tab (needed for INR->USD) ---
+    try:
+        fx_df = fetch_sheet_csv(SHEET_ID, "USDINR")  # Date, Close where close = INR per 1 USD
+        fx = fx_df.set_index("date")["close"]
+        have_fx = len(fx_df) > 0
+        print(f"[ok] USDINR rows={len(fx_df)}")
+    except Exception as e:
+        have_fx = False
+        fx = pd.Series(dtype=float)
+        print(f"[warn] USDINR tab not available or empty: {e}")
+
     all_dates = pd.Series(sorted(list(all_dates)), dtype="string")
 
     # --- Transactions (optional) ---
@@ -132,31 +154,55 @@ def main():
         tx = synthesize_transactions(stocks)
         print(f"[info] synthesized transactions: {len(tx)} rows")
 
-    # --- Holdings timeseries ---
-    holdings = {sym: pd.Series(0.0, index=all_dates) for sym in symbols}
-    invested = pd.Series(0.0, index=all_dates)  # in BASE_CURRENCY (INR here)
+    # --- Helpers for conversion ---
+    def price_series_to_usd(series_local: pd.Series, sym: str) -> pd.Series:
+        cur = local_currency(sym)
+        if cur == "USD":
+            return series_local
+        if cur == "INR":
+            if not have_fx:
+                print(f"[warn] No USDINR FX; leaving {sym} in INR (will mis-scale USD NAV).")
+                return series_local
+            fx_aligned = fx.reindex(series_local.index).ffill()
+            # USDINR = INR per USD → price_usd = price_inr / USDINR
+            return series_local / fx_aligned
+        return series_local  # extend if you add other markets
 
+    def tx_price_to_usd(symbol: str, price_local: float, on_date: str) -> float:
+        cur = local_currency(symbol)
+        if cur == "USD":
+            return float(price_local)
+        if cur == "INR":
+            if not have_fx:
+                return float(price_local)
+            fx_val = fx.reindex([on_date]).ffill().iloc[0]
+            return float(price_local) / float(fx_val)
+        return float(price_local)
+
+    # --- Holdings time series ---
+    holdings = {sym: pd.Series(0.0, index=all_dates) for sym in symbols}
+    invested_usd = pd.Series(0.0, index=all_dates)  # cumulative invested in USD
     for sym in symbols:
         h = pd.Series(0.0, index=all_dates)
         sym_tx = tx[tx["symbol"] == sym]
         for _, row in sym_tx.iterrows():
             h.loc[h.index >= row["date"]] += float(row["qty"])
-            invested.loc[invested.index >= row["date"]] += float(row["qty"]) * float(row.get("price", 0.0))
+            invested_usd.loc[invested_usd.index >= row["date"]] += float(row["qty"]) * tx_price_to_usd(sym, float(row.get("price", 0.0)), row["date"])
         holdings[sym] = h
 
-    # --- Daily value (BASE_CURRENCY) ---
-    values = pd.Series(0.0, index=all_dates, dtype=float)
-
+    # --- Daily value in USD ---
+    values_usd = pd.Series(0.0, index=all_dates, dtype=float)
     for sym in symbols:
-        df = price_map[sym].set_index("date")["close"]
-        df = align_ffill(all_dates, df)
-        values += df * holdings[sym]
+        s = price_map[sym].set_index("date")["close"].reindex(all_dates).ffill()
+        s_usd = price_series_to_usd(s, sym)
+        values_usd += s_usd * holdings[sym]
 
-    cash = (STARTING_CASH - invested).clip(lower=0.0)
-    nav  = (values + cash).round(4)
+    # --- Cash (USD) & NAV (USD) ---
+    cash_usd = (STARTING_CASH - invested_usd).clip(lower=0.0)
+    nav_usd  = (values_usd + cash_usd).round(4)
 
-    # --- NAV index, P&L ---
-    nonzero = nav[nav > 0]
+    # --- NAV index & P/L ---
+    nonzero = nav_usd[nav_usd > 0]
     if nonzero.empty:
         inception = None
         nav_index = pd.Series(np.nan, index=all_dates)
@@ -164,20 +210,20 @@ def main():
         pnl_pct = pd.Series(np.nan, index=all_dates)
     else:
         inception = nonzero.index.min()
-        base_val = nav.loc[inception]
-        nav_index = (nav / base_val * 100.0).round(4)
-        pnl_abs = (nav - base_val).round(2)
-        pnl_pct = ((nav / base_val - 1.0) * 100.0).round(3)
+        base_val = nav_usd.loc[inception]
+        nav_index = (nav_usd / base_val * 100.0).round(4)
+        pnl_abs = (nav_usd - base_val).round(2)
+        pnl_pct = ((nav_usd / base_val - 1.0) * 100.0).round(3)
 
     # --- Write outputs ---
     nav_df = pd.DataFrame({
         "date": all_dates,
-        f"nav_{BASE_CURRENCY.lower()}": nav,
-        f"cash_{BASE_CURRENCY.lower()}": cash.round(4),
-        f"holdings_{BASE_CURRENCY.lower()}": values.round(4),
-        f"invested_{BASE_CURRENCY.lower()}": invested.round(4),
+        "nav_usd": nav_usd,
+        "cash_usd": cash_usd.round(4),
+        "holdings_usd": values_usd.round(4),
+        "invested_usd": invested_usd.round(4),
         "nav_index": nav_index,
-        f"pnl_abs_{BASE_CURRENCY.lower()}": pnl_abs,
+        "pnl_abs_usd": pnl_abs,
         "pnl_pct": pnl_pct
     })
 
@@ -187,15 +233,15 @@ def main():
 
     latest = {
         "date": all_dates.iloc[-1],
-        "nav": float(nav.iloc[-1]),
-        "cash": float(cash.iloc[-1]),
-        "holdings": float(values.iloc[-1]),
-        "invested": float(invested.iloc[-1]),
+        "nav": float(nav_usd.iloc[-1]),
+        "cash": float(cash_usd.iloc[-1]),
+        "holdings": float(values_usd.iloc[-1]),
+        "invested": float(invested_usd.iloc[-1]),
         "pnl_abs": float(pnl_abs.iloc[-1]) if not pd.isna(pnl_abs.iloc[-1]) else None,
         "pnl_pct": float(pnl_pct.iloc[-1]) if not pd.isna(pnl_pct.iloc[-1]) else None
     }
     summary = {
-        "base_currency": BASE_CURRENCY,
+        "base_currency": "USD",
         "starting_cash": STARTING_CASH,
         "inception_date": inception if inception else None,
         "latest": latest
@@ -204,7 +250,6 @@ def main():
     out_sum = DATA / "nav_summary.json"
     out_sum.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"[ok] wrote {out_sum.relative_to(ROOT)}")
-    print("[done] quotes + NAV generation complete (Google Sheets source)")
-
+    print("[done] quotes + NAV generation complete (Google Sheets → USD)")
 if __name__ == "__main__":
     main()
