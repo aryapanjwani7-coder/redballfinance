@@ -1,20 +1,21 @@
 import os, sys, json, time, datetime as dt
 from pathlib import Path
-import math
 import pandas as pd
 import numpy as np
 import requests
 
-# ================== CONFIG ==================
-BASE_CURRENCY = os.getenv("BASE_CURRENCY", "USD").upper()   # "USD" or "INR"
-STARTING_CASH = float(os.getenv("STARTING_CASH_USD", "10000000"))  # if BASE=INR, interpret as INR
+# ================== CONFIG (via env) ==================
+# Set to "INR" (default) for immediate success with NSE/BSE.
+# You can change to "USD" later and add USD/INR FX support.
+BASE_CURRENCY = os.getenv("BASE_CURRENCY", "INR").upper()   # "INR" or "USD"
+STARTING_CASH = float(os.getenv("STARTING_CASH", os.getenv("STARTING_CASH_USD", "10000000")))
 YEARS_BACK = int(os.getenv("YEARS_BACK", "5"))
-API_KEY = os.getenv("TWELVE_DATA_KEY", "").strip()
-REQUESTS_PER_MIN = int(os.getenv("TD_REQ_PER_MIN", "8"))  # free tier throttle
-# ============================================
+API_KEY = os.getenv("FINNHUB_KEY", "").strip()
+REQS_PER_MIN = int(os.getenv("FH_REQS_PER_MIN", "50"))  # free tier is generous
+# ======================================================
 
 if not API_KEY:
-    print("ERROR: missing TWELVE_DATA_KEY env var", file=sys.stderr)
+    print("ERROR: FINNHUB_KEY is missing (set it as a repo secret).", file=sys.stderr)
     sys.exit(1)
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -43,104 +44,76 @@ print(f"[info] BASE_CURRENCY={BASE_CURRENCY}")
 print(f"[info] STARTING_CASH={STARTING_CASH:,.2f}")
 print(f"[info] YEARS_BACK={YEARS_BACK}")
 
-# ---------- Symbol mapping helpers (NSE/BSE) ----------
-def parse_symbol(s: str):
+# -------- symbol helpers (Yahoo-style -> Finnhub-style) ----------
+def parse_symbol_yahoo(y):
     """
-    Input examples from stocks.json:
-      - 'COALINDIA.NS'  -> base='COALINDIA', exch='NSE'
-      - 'KIRLOSBROS.NS' -> base='KIRLOSBROS', exch='NSE'
-      - 'RELIANCE.BO'   -> base='RELIANCE',  exch='BSE'
-      - 'AAPL'          -> base='AAPL',      exch=None (US)
-    Twelve Data: prefer symbol+exchange params (e.g., symbol=COALINDIA&exchange=NSE)
+    'COALINDIA.NS' -> ('COALINDIA', 'NSE')
+    'RELIANCE.BO'  -> ('RELIANCE',  'BSE')
+    'AAPL'         -> ('AAPL',      None)
+    Finnhub wants 'Exchange_Ticker.Exchange_Code' i.e. AAPL.US, RELIANCE.BSE, COALINDIA.NSE
     """
-    s = (s or "").upper().strip()
-    base, exch = s, None
-    if s.endswith(".NS"):
-        base, exch = s[:-3], "NSE"
-    elif s.endswith(".BO"):
-        base, exch = s[:-3], "BSE"
-    return base, exch
+    y = (y or "").upper().strip()
+    if y.endswith(".NS"):
+        return y[:-3], "NSE"
+    if y.endswith(".BO"):
+        return y[:-3], "BSE"
+    # assume US if bare
+    return y, "US"
 
-def local_currency(sym: str) -> str:
-    s = (sym or "").upper()
-    if s.endswith(".NS") or s.endswith(".BO"):
+def to_finnhub_symbol(y):
+    base, exch = parse_symbol_yahoo(y)
+    # Common exchange codes Finnhub uses: US, NSE, BSE, LSE, ...
+    return f"{base}.{exch}" if exch else base
+
+def local_currency(y):
+    y = (y or "").upper()
+    if y.endswith(".NS") or y.endswith(".BO"):
         return "INR"
     return "USD"
 
-# ---------- Twelve Data helpers ----------
-BASE_URL = "https://api.twelvedata.com/time_series"
+# -------- Finnhub REST helpers ----------
+FH_BASE = "https://finnhub.io/api/v1"
 
-def td_fetch_timeseries(symbol_base: str, exchange: str | None, start_date: str, end_date: str) -> pd.DataFrame:
-    """
-    Fetch daily time series for a symbol from Twelve Data.
-    Returns DataFrame with columns: date, close (float). Newest first in TD, we reverse.
-    """
-    params = {
-        "symbol": symbol_base,
-        "interval": "1day",
-        "apikey": API_KEY,
-        "format": "JSON",
-        "outputsize": 5000,  # generous
-        "start_date": start_date,
-        "end_date": end_date,
-        "order": "ASC"
-    }
-    if exchange:
-        params["exchange"] = exchange
-
-    r = requests.get(BASE_URL, params=params, timeout=30)
+def fh_get(path, params):
+    params = dict(params or {})
+    params["token"] = API_KEY
+    r = requests.get(f"{FH_BASE}{path}", params=params, timeout=30)
     if r.status_code != 200:
-        raise RuntimeError(f"HTTP {r.status_code} for {symbol_base}:{exchange} -> {r.text[:200]}")
+        raise RuntimeError(f"HTTP {r.status_code}: {r.text[:200]}")
+    return r.json()
 
-    data = r.json()
-    if "values" not in data:
-        # Sometimes TD returns {"status":"error","message":"..."}
-        raise RuntimeError(f"No 'values' in response for {symbol_base}:{exchange} -> {str(data)[:200]}")
-
-    rows = data["values"]
-    if not rows:
+def fh_candles(symbol, resolution, t_from, t_to):
+    """Return pandas DataFrame with columns date, close sorted asc.
+       Finnhub returns JSON with keys s,status; c(lose), t(imes) arrays.
+    """
+    data = fh_get("/stock/candle", {
+        "symbol": symbol, "resolution": resolution, "from": t_from, "to": t_to
+    })
+    if not data or data.get("s") != "ok":
+        # could be s=no_data
         return pd.DataFrame(columns=["date", "close"])
-
-    # rows are dicts: {"datetime":"2024-08-22","close":"123.45",...}
-    df = pd.DataFrame(rows)
-    # standardize
-    df = df.rename(columns={"datetime": "date"})
-    df["date"] = pd.to_datetime(df["date"]).dt.date.astype(str)
-    df["close"] = pd.to_numeric(df["close"], errors="coerce")
-    df = df[["date", "close"]].dropna().sort_values("date")
+    t = data.get("t", [])
+    c = data.get("c", [])
+    if not t or not c:
+        return pd.DataFrame(columns=["date", "close"])
+    dates = pd.to_datetime(pd.Series(t), unit="s").dt.date.astype(str)
+    closes = pd.Series(c, dtype=float)
+    df = pd.DataFrame({"date": dates, "close": closes}).dropna().sort_values("date")
     return df
 
-def td_fetch_fx_usdinr(start_date: str, end_date: str) -> pd.DataFrame:
-    # Twelve Data uses "USD/INR" as symbol for FX
-    params = {
-        "symbol": "USD/INR",
-        "interval": "1day",
-        "apikey": API_KEY,
-        "format": "JSON",
-        "outputsize": 5000,
-        "start_date": start_date,
-        "end_date": end_date,
-        "order": "ASC"
-    }
-    r = requests.get(BASE_URL, params=params, timeout=30)
-    if r.status_code != 200:
-        raise RuntimeError(f"FX HTTP {r.status_code} -> {r.text[:200]}")
-    data = r.json()
-    if "values" not in data or not data["values"]:
-        raise RuntimeError(f"FX missing 'values' -> {str(data)[:200]}")
-    df = pd.DataFrame(data["values"]).rename(columns={"datetime":"date"})
-    df["date"] = pd.to_datetime(df["date"]).dt.date.astype(str)
-    df["close"] = pd.to_numeric(df["close"], errors="coerce")
-    df = df[["date", "close"]].dropna().sort_values("date")
-    return df
+def throttle(i):
+    if REQS_PER_MIN <= 0: return
+    # very light throttle to be nice (Finnhub free is ~60/min)
+    time.sleep(60.0 / REQS_PER_MIN)
 
-# ---------- Time window ----------
+# -------- Time window in UNIX (Finnhub needs epoch seconds) ----------
 today = dt.date.today()
-start = (today - dt.timedelta(days=YEARS_BACK*365 + 30)).isoformat()
-end = today.isoformat()
-print(f"[info] fetching range: {start} -> {end}")
+start_date = (today - dt.timedelta(days=YEARS_BACK*365 + 30))
+from_ts = int(dt.datetime.combine(start_date, dt.time.min).timestamp())
+to_ts   = int(dt.datetime.combine(today, dt.time.max).timestamp())
+print(f"[info] fetching candles from {start_date.isoformat()} -> {today.isoformat()}")
 
-# ---------- Fetch quotes for each stock ----------
+# -------- Collect symbols & metadata ----------
 symbols = []
 meta = []
 for s in stocks:
@@ -149,11 +122,9 @@ for s in stocks:
         print("[warn] skipping stock without symbol/ticker:", s)
         continue
     symbols.append(sym)
-    base, exch = parse_symbol(sym)
     meta.append({
         "symbol": sym,
-        "base": base,
-        "exchange": exch,
+        "fh_symbol": to_finnhub_symbol(sym),
         "buy_date": s.get("buy_date"),
         "qty": float(s.get("qty") or 0.0),
         "buy_price": float(s.get("buy_price") or 0.0),
@@ -162,35 +133,30 @@ for s in stocks:
 if not symbols:
     die("no usable symbols in data/stocks.json")
 
-def throttle(i, per_min=REQUESTS_PER_MIN):
-    if per_min <= 0: 
-        return
-    # crude throttle: sleep a bit each request to stay under rate
-    time.sleep(60.0 / per_min)
-
-price_map: dict[str, pd.DataFrame] = {}
+# -------- Fetch candles & persist per-symbol JSON ----------
+price_map = {}
 dates_set = set()
 
 for i, m in enumerate(meta, 1):
-    base, exch = m["base"], m["exchange"]
+    fh_sym = m["fh_symbol"]
     try:
-        df = td_fetch_timeseries(base, exch, start, end)
+        df = fh_candles(fh_sym, "D", from_ts, to_ts)
     except Exception as e:
-        print(f"[warn] TD fetch failed for {base}:{exch} -> {e}")
-        df = pd.DataFrame(columns=["date","close"])
+        print(f"[warn] Finnhub fetch failed for {fh_sym}: {e}")
+        df = pd.DataFrame(columns=["date", "close"])
     out = QUOTES / f"{m['symbol']}.json"
     df.to_json(out, orient="records", force_ascii=False)
-    price_map[m['symbol']] = df
+    price_map[m["symbol"]] = df
     dates_set |= set(df["date"].unique())
     print(f"[ok] wrote data/quotes/{m['symbol']}.json rows={len(df)}")
     throttle(i)
 
 if not dates_set:
-    die("no quote data fetched for any symbol (check Twelve Data symbol/exchange mapping)")
+    die("no quote data fetched for any symbol (Finnhub blocked symbol or mapping wrong)")
 
 all_dates = pd.Series(sorted(list(dates_set)), dtype="string")
 
-# ---------- Transactions (optional) ----------
+# -------- Transactions (optional) ----------
 if tx_json.exists():
     try:
         tx = pd.read_json(tx_json)
@@ -214,40 +180,17 @@ if tx.empty:
     print(f"[info] synthesized transactions: {len(tx)} rows")
 tx = tx.sort_values("date")
 
-# ---------- FX (USD/INR) series if needed ----------
-need_fx = any((m["currency"].upper() != BASE_CURRENCY) for m in meta)
-fx_series = None
-if need_fx:
-    try:
-        fx_df = td_fetch_fx_usdinr(start, end)  # USD/INR (how many INR per 1 USD)
-        fx_series = fx_df.set_index("date")["close"]
-        print(f"[ok] FX USD/INR rows={len(fx_df)}")
-    except Exception as e:
-        print(f"[warn] FX fetch failed: {e} — will proceed without conversion (units may mix)")
+# -------- Build holdings time series ----------
+def align_ffill(dates: pd.Series, s: pd.Series) -> pd.Series:
+    return s.reindex(dates).ffill()
 
-def convert_to_base(series_local: pd.Series, local_cur: str) -> pd.Series:
-    if local_cur.upper() == BASE_CURRENCY or fx_series is None:
-        return series_local
-    aligned_fx = fx_series.reindex(series_local.index).ffill()
-    if BASE_CURRENCY == "USD" and local_cur.upper() == "INR":
-        # price_usd = price_inr / (INR per USD)
-        return series_local / aligned_fx
-    if BASE_CURRENCY == "INR" and local_cur.upper() == "USD":
-        # price_inr = price_usd * (INR per USD)
-        return series_local * aligned_fx
-    # fallback: no conversion rule
-    return series_local
-
-# ---------- Build holdings per day ----------
 holdings = {m["symbol"]: pd.Series(0.0, index=all_dates) for m in meta}
-invested_base = pd.Series(0.0, index=all_dates)  # cumulative invested in BASE
+invested = pd.Series(0.0, index=all_dates)  # cumulative invested (in BASE_CURRENCY)
 
 def tx_price_to_base(symbol: str, price_local: float, on_date: str) -> float:
-    m = next(x for x in meta if x["symbol"] == symbol)
-    cur = m["currency"]
-    tmp = pd.Series([price_local], index=pd.Index([on_date], dtype="string"))
-    conv = convert_to_base(tmp, cur)
-    return float(conv.iloc[0])
+    # Since BASE is INR by default and NSE is INR, we return as-is.
+    # If you switch BASE to USD later, add USD/INR conversion here.
+    return float(price_local)
 
 for m in meta:
     sym = m["symbol"]
@@ -255,25 +198,24 @@ for m in meta:
     sym_tx = tx[tx["symbol"] == sym]
     for _, row in sym_tx.iterrows():
         h.loc[h.index >= row["date"]] += float(row["qty"])
-        price_base = tx_price_to_base(sym, float(row.get("price", 0.0)), row["date"])
-        invested_base.loc[invested_base.index >= row["date"]] += float(row["qty"]) * price_base
+        invested.loc[invested.index >= row["date"]] += float(row["qty"]) * tx_price_to_base(sym, float(row.get("price", 0.0)), row["date"])
     holdings[sym] = h
 
-# ---------- Daily holdings value (in BASE) ----------
-values_base = pd.Series(0.0, index=all_dates, dtype=float)
+# -------- Value holdings (in BASE_CURRENCY) ----------
+values = pd.Series(0.0, index=all_dates, dtype=float)
 
 for m in meta:
     sym = m["symbol"]
-    qdf = price_map[sym].set_index("date")["close"].reindex(all_dates).ffill()
-    price_base_series = convert_to_base(qdf, m["currency"])
-    values_base += price_base_series * holdings[sym]
+    qdf = price_map[sym].set_index("date")["close"]
+    qdf = align_ffill(all_dates, qdf)
+    # If BASE=INR and symbol is INR, add directly. If BASE=USD later, convert here with FX.
+    values += qdf * holdings[sym]
 
-# ---------- Cash & NAV ----------
-cash_base = (STARTING_CASH - invested_base).clip(lower=0.0)
-nav_base = (values_base + cash_base).round(4)
+cash = (STARTING_CASH - invested).clip(lower=0.0)
+nav = (values + cash).round(4)
 
-# NAV index (100 = inception)
-nonzero = nav_base[nav_base > 0]
+# -------- NAV index, P&L ----------
+nonzero = nav[nav > 0]
 if nonzero.empty:
     inception = None
     nav_index = pd.Series(np.nan, index=all_dates)
@@ -281,18 +223,18 @@ if nonzero.empty:
     pnl_pct = pd.Series(np.nan, index=all_dates)
 else:
     inception = nonzero.index.min()
-    base_val = nav_base.loc[inception]
-    nav_index = (nav_base / base_val * 100.0).round(4)
-    pnl_abs = (nav_base - base_val).round(2)
-    pnl_pct = ((nav_base / base_val - 1.0) * 100.0).round(3)
+    base_val = nav.loc[inception]
+    nav_index = (nav / base_val * 100.0).round(4)
+    pnl_abs = (nav - base_val).round(2)
+    pnl_pct = ((nav / base_val - 1.0) * 100.0).round(3)
 
-# ---------- Write outputs ----------
+# -------- Write outputs ----------
 nav_df = pd.DataFrame({
     "date": all_dates,
-    f"nav_{BASE_CURRENCY.lower()}": nav_base,
-    f"cash_{BASE_CURRENCY.lower()}": cash_base.round(4),
-    f"holdings_{BASE_CURRENCY.lower()}": values_base.round(4),
-    f"invested_{BASE_CURRENCY.lower()}": invested_base.round(4),
+    f"nav_{BASE_CURRENCY.lower()}": nav,
+    f"cash_{BASE_CURRENCY.lower()}": cash.round(4),
+    f"holdings_{BASE_CURRENCY.lower()}": values.round(4),
+    f"invested_{BASE_CURRENCY.lower()}": invested.round(4),
     "nav_index": nav_index,
     f"pnl_abs_{BASE_CURRENCY.lower()}": pnl_abs,
     "pnl_pct": pnl_pct
@@ -302,15 +244,14 @@ out_nav = DATA / "nav.json"
 nav_df.to_json(out_nav, orient="records", force_ascii=False)
 print(f"[ok] wrote {out_nav.relative_to(ROOT)} rows={len(nav_df)}")
 
-latest_idx = len(all_dates) - 1
 latest = {
-    "date": all_dates.iloc[latest_idx],
-    "nav": float(nav_base.iloc[latest_idx]),
-    "cash": float(cash_base.iloc[latest_idx]),
-    "holdings": float(values_base.iloc[latest_idx]),
-    "invested": float(invested_base.iloc[latest_idx]),
-    "pnl_abs": float(pnl_abs.iloc[latest_idx]) if not pd.isna(pnl_abs.iloc[latest_idx]) else None,
-    "pnl_pct": float(pnl_pct.iloc[latest_idx]) if not pd.isna(pnl_pct.iloc[latest_idx]) else None
+    "date": all_dates.iloc[-1],
+    "nav": float(nav.iloc[-1]),
+    "cash": float(cash.iloc[-1]),
+    "holdings": float(values.iloc[-1]),
+    "invested": float(invested.iloc[-1]),
+    "pnl_abs": float(pnl_abs.iloc[-1]) if not pd.isna(pnl_abs.iloc[-1]) else None,
+    "pnl_pct": float(pnl_pct.iloc[-1]) if not pd.isna(pnl_pct.iloc[-1]) else None
 }
 summary = {
     "base_currency": BASE_CURRENCY,
@@ -318,8 +259,10 @@ summary = {
     "inception_date": inception if inception else None,
     "latest": latest
 }
+
 out_sum = DATA / "nav_summary.json"
 out_sum.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
 print(f"[ok] wrote {out_sum.relative_to(ROOT)}")
 
-print("[done] quotes + NAV generation complete (Twelve Data)")
+print("[done] quotes + NAV generation complete (Finnhub)")
+
