@@ -1,17 +1,21 @@
-import os, sys, json, datetime as dt
+import os, sys, json, time, datetime as dt
 from pathlib import Path
+import math
 import pandas as pd
 import numpy as np
-import yfinance as yf
+import requests
 
-# =============== CONFIG (via env, with safe defaults) ==================
-# Base currency for NAV & reporting. Use "USD" or "INR" for now.
-BASE_CURRENCY = os.getenv("BASE_CURRENCY", "USD").upper()  # "USD" (default) or "INR"
-# Paper portfolio starting cash (in USD terms; if BASE_CURRENCY="INR", it's INR)
-STARTING_CASH = float(os.getenv("STARTING_CASH_USD", "10000000"))
-# How much quote history to fetch
+# ================== CONFIG ==================
+BASE_CURRENCY = os.getenv("BASE_CURRENCY", "USD").upper()   # "USD" or "INR"
+STARTING_CASH = float(os.getenv("STARTING_CASH_USD", "10000000"))  # if BASE=INR, interpret as INR
 YEARS_BACK = int(os.getenv("YEARS_BACK", "5"))
-# =======================================================================
+API_KEY = os.getenv("TWELVE_DATA_KEY", "").strip()
+REQUESTS_PER_MIN = int(os.getenv("TD_REQ_PER_MIN", "8"))  # free tier throttle
+# ============================================
+
+if not API_KEY:
+    print("ERROR: missing TWELVE_DATA_KEY env var", file=sys.stderr)
+    sys.exit(1)
 
 ROOT = Path(__file__).resolve().parents[2]
 DATA = ROOT / "data"
@@ -39,54 +43,104 @@ print(f"[info] BASE_CURRENCY={BASE_CURRENCY}")
 print(f"[info] STARTING_CASH={STARTING_CASH:,.2f}")
 print(f"[info] YEARS_BACK={YEARS_BACK}")
 
-# ------------------------ Helpers --------------------------------------
-def sym_to_currency(sym: str) -> str:
+# ---------- Symbol mapping helpers (NSE/BSE) ----------
+def parse_symbol(s: str):
+    """
+    Input examples from stocks.json:
+      - 'COALINDIA.NS'  -> base='COALINDIA', exch='NSE'
+      - 'KIRLOSBROS.NS' -> base='KIRLOSBROS', exch='NSE'
+      - 'RELIANCE.BO'   -> base='RELIANCE',  exch='BSE'
+      - 'AAPL'          -> base='AAPL',      exch=None (US)
+    Twelve Data: prefer symbol+exchange params (e.g., symbol=COALINDIA&exchange=NSE)
+    """
+    s = (s or "").upper().strip()
+    base, exch = s, None
+    if s.endswith(".NS"):
+        base, exch = s[:-3], "NSE"
+    elif s.endswith(".BO"):
+        base, exch = s[:-3], "BSE"
+    return base, exch
+
+def local_currency(sym: str) -> str:
     s = (sym or "").upper()
     if s.endswith(".NS") or s.endswith(".BO"):
         return "INR"
-    return "USD"  # extend for other markets if needed
+    return "USD"
 
-def fx_candidates(local: str, base: str) -> list[str]:
-    """Return a list of Yahoo symbols to convert LOCAL -> BASE (close-enough daily)."""
-    local = local.upper(); base = base.upper()
-    if base == "USD" and local == "INR":
-        # Either can be empty sometimes; try both
-        # INR=X is USD/INR; USDINR=X is also USD/INR on Yahoo — one usually works.
-        return ["INR=X", "USDINR=X"]
-    if base == "INR" and local == "USD":
-        # For USD -> INR we still want USD/INR; conversion formula adjusts below.
-        return ["INR=X", "USDINR=X"]
-    # Add more currency pairs if you add other exchanges
-    return []
+# ---------- Twelve Data helpers ----------
+BASE_URL = "https://api.twelvedata.com/time_series"
 
-def fetch_hist(sym: str, start: str, end: str) -> pd.DataFrame:
-    try:
-        t = yf.Ticker(sym)
-        hist = t.history(interval="1d", start=start, end=end, auto_adjust=False)
-    except Exception as e:
-        print(f"[warn] exception fetching {sym}: {e}")
-        hist = pd.DataFrame()
-    if hist is None or hist.empty:
-        print(f"[warn] empty history for {sym}")
-        return pd.DataFrame(columns=["date","close"])
-    close = hist["Adj Close"] if "Adj Close" in hist.columns and not hist["Adj Close"].isna().all() else hist["Close"]
-    df = pd.DataFrame({
-        "date": close.index.tz_localize(None).date.astype(str),
-        "close": close.round(6)
-    })
+def td_fetch_timeseries(symbol_base: str, exchange: str | None, start_date: str, end_date: str) -> pd.DataFrame:
+    """
+    Fetch daily time series for a symbol from Twelve Data.
+    Returns DataFrame with columns: date, close (float). Newest first in TD, we reverse.
+    """
+    params = {
+        "symbol": symbol_base,
+        "interval": "1day",
+        "apikey": API_KEY,
+        "format": "JSON",
+        "outputsize": 5000,  # generous
+        "start_date": start_date,
+        "end_date": end_date,
+        "order": "ASC"
+    }
+    if exchange:
+        params["exchange"] = exchange
+
+    r = requests.get(BASE_URL, params=params, timeout=30)
+    if r.status_code != 200:
+        raise RuntimeError(f"HTTP {r.status_code} for {symbol_base}:{exchange} -> {r.text[:200]}")
+
+    data = r.json()
+    if "values" not in data:
+        # Sometimes TD returns {"status":"error","message":"..."}
+        raise RuntimeError(f"No 'values' in response for {symbol_base}:{exchange} -> {str(data)[:200]}")
+
+    rows = data["values"]
+    if not rows:
+        return pd.DataFrame(columns=["date", "close"])
+
+    # rows are dicts: {"datetime":"2024-08-22","close":"123.45",...}
+    df = pd.DataFrame(rows)
+    # standardize
+    df = df.rename(columns={"datetime": "date"})
+    df["date"] = pd.to_datetime(df["date"]).dt.date.astype(str)
+    df["close"] = pd.to_numeric(df["close"], errors="coerce")
+    df = df[["date", "close"]].dropna().sort_values("date")
     return df
 
-def ensure_series_index(dates: pd.Series, s: pd.Series) -> pd.Series:
-    """Align s to dates and forward-fill."""
-    return s.reindex(dates).ffill()
+def td_fetch_fx_usdinr(start_date: str, end_date: str) -> pd.DataFrame:
+    # Twelve Data uses "USD/INR" as symbol for FX
+    params = {
+        "symbol": "USD/INR",
+        "interval": "1day",
+        "apikey": API_KEY,
+        "format": "JSON",
+        "outputsize": 5000,
+        "start_date": start_date,
+        "end_date": end_date,
+        "order": "ASC"
+    }
+    r = requests.get(BASE_URL, params=params, timeout=30)
+    if r.status_code != 200:
+        raise RuntimeError(f"FX HTTP {r.status_code} -> {r.text[:200]}")
+    data = r.json()
+    if "values" not in data or not data["values"]:
+        raise RuntimeError(f"FX missing 'values' -> {str(data)[:200]}")
+    df = pd.DataFrame(data["values"]).rename(columns={"datetime":"date"})
+    df["date"] = pd.to_datetime(df["date"]).dt.date.astype(str)
+    df["close"] = pd.to_numeric(df["close"], errors="coerce")
+    df = df[["date", "close"]].dropna().sort_values("date")
+    return df
 
-# ------------------------ Time Window ----------------------------------
+# ---------- Time window ----------
 today = dt.date.today()
 start = (today - dt.timedelta(days=YEARS_BACK*365 + 30)).isoformat()
 end = today.isoformat()
-print(f"[info] fetching history range: {start} -> {end}")
+print(f"[info] fetching range: {start} -> {end}")
 
-# ------------------------ Symbols & meta --------------------------------
+# ---------- Fetch quotes for each stock ----------
 symbols = []
 meta = []
 for s in stocks:
@@ -95,33 +149,48 @@ for s in stocks:
         print("[warn] skipping stock without symbol/ticker:", s)
         continue
     symbols.append(sym)
+    base, exch = parse_symbol(sym)
     meta.append({
         "symbol": sym,
+        "base": base,
+        "exchange": exch,
         "buy_date": s.get("buy_date"),
         "qty": float(s.get("qty") or 0.0),
         "buy_price": float(s.get("buy_price") or 0.0),
-        "currency": s.get("currency") or sym_to_currency(sym)
+        "currency": s.get("currency") or local_currency(sym)
     })
 if not symbols:
-    die("no usable symbols found in data/stocks.json")
+    die("no usable symbols in data/stocks.json")
 
-# ------------------------ Fetch quotes per symbol -----------------------
+def throttle(i, per_min=REQUESTS_PER_MIN):
+    if per_min <= 0: 
+        return
+    # crude throttle: sleep a bit each request to stay under rate
+    time.sleep(60.0 / per_min)
+
 price_map: dict[str, pd.DataFrame] = {}
-all_dates_set = set()
-for sym in symbols:
-    df = fetch_hist(sym, start, end)
-    out = QUOTES / f"{sym}.json"
+dates_set = set()
+
+for i, m in enumerate(meta, 1):
+    base, exch = m["base"], m["exchange"]
+    try:
+        df = td_fetch_timeseries(base, exch, start, end)
+    except Exception as e:
+        print(f"[warn] TD fetch failed for {base}:{exch} -> {e}")
+        df = pd.DataFrame(columns=["date","close"])
+    out = QUOTES / f"{m['symbol']}.json"
     df.to_json(out, orient="records", force_ascii=False)
-    price_map[sym] = df
-    all_dates_set |= set(df["date"].unique())
-    print(f"[ok] wrote data/quotes/{sym}.json rows={len(df)}")
+    price_map[m['symbol']] = df
+    dates_set |= set(df["date"].unique())
+    print(f"[ok] wrote data/quotes/{m['symbol']}.json rows={len(df)}")
+    throttle(i)
 
-if not all_dates_set:
-    die("no quote data fetched for any symbol (check your symbols)")
+if not dates_set:
+    die("no quote data fetched for any symbol (check Twelve Data symbol/exchange mapping)")
 
-all_dates = pd.Series(sorted(list(all_dates_set)), dtype="string")
+all_dates = pd.Series(sorted(list(dates_set)), dtype="string")
 
-# ------------------------ Load transactions (optional) ------------------
+# ---------- Transactions (optional) ----------
 if tx_json.exists():
     try:
         tx = pd.read_json(tx_json)
@@ -133,105 +202,74 @@ if tx_json.exists():
 else:
     tx = pd.DataFrame(columns=["date","symbol","qty","price"])
 
-# If no transactions file, synthesize one lot per stock from stocks.json
 if tx.empty:
     rows = []
     for m in meta:
         if (m["qty"] or 0) > 0 and m.get("buy_date"):
             rows.append({
-                "date": m["buy_date"],
-                "symbol": m["symbol"],
-                "qty": m["qty"],
-                "price": m.get("buy_price", 0.0)
+                "date": m["buy_date"], "symbol": m["symbol"],
+                "qty": m["qty"], "price": m.get("buy_price", 0.0)
             })
     tx = pd.DataFrame(rows) if rows else pd.DataFrame(columns=["date","symbol","qty","price"])
     print(f"[info] synthesized transactions: {len(tx)} rows")
-
 tx = tx.sort_values("date")
 
-# ------------------------ Preload FX series ------------------------------
-# We’ll prefetch any FX series we might need (LOCAL -> BASE)
-fx_needed = set()
-for m in meta:
-    local_cur = m["currency"].upper()
-    if local_cur != BASE_CURRENCY:
-        fx_needed.update(fx_candidates(local_cur, BASE_CURRENCY))
-
-fx_map: dict[str, pd.Series] = {}
-for fx in sorted(fx_needed):
-    dfx = fetch_hist(fx, start, end)
-    if not dfx.empty:
-        fx_map[fx] = dfx.set_index("date")["close"]
-        print(f"[ok] FX series {fx}: rows={len(dfx)}")
-    else:
-        print(f"[warn] FX series empty: {fx}")
+# ---------- FX (USD/INR) series if needed ----------
+need_fx = any((m["currency"].upper() != BASE_CURRENCY) for m in meta)
+fx_series = None
+if need_fx:
+    try:
+        fx_df = td_fetch_fx_usdinr(start, end)  # USD/INR (how many INR per 1 USD)
+        fx_series = fx_df.set_index("date")["close"]
+        print(f"[ok] FX USD/INR rows={len(fx_df)}")
+    except Exception as e:
+        print(f"[warn] FX fetch failed: {e} — will proceed without conversion (units may mix)")
 
 def convert_to_base(series_local: pd.Series, local_cur: str) -> pd.Series:
-    """Convert local price series to BASE_CURRENCY using available FX candidates.
-       For USD base with INR local: price_usd = price_inr / (USDINR)
-       For INR base with USD local: price_inr = price_usd * (USDINR)
-       We use the same USDINR series and invert/multiply appropriately.
-    """
-    local_cur = local_cur.upper()
-    if local_cur == BASE_CURRENCY:
+    if local_cur.upper() == BASE_CURRENCY or fx_series is None:
         return series_local
-
-    cands = fx_candidates(local_cur, BASE_CURRENCY)
-    if not cands:
-        print(f"[warn] no FX mapping for {local_cur}->{BASE_CURRENCY}, returning local prices")
-        return series_local
-
-    # Use the first available FX series
-    for fx in cands:
-        s = fx_map.get(fx)
-        if s is not None and not s.empty:
-            s_aligned = ensure_series_index(series_local.index, s)
-            if BASE_CURRENCY == "USD" and local_cur == "INR":
-                # USDINR = INR per 1 USD  -> price_usd = price_inr / USDINR
-                return series_local / s_aligned
-            if BASE_CURRENCY == "INR" and local_cur == "USD":
-                # price_inr = price_usd * USDINR
-                return series_local * s_aligned
-            # Extend for other currency pairs if you add them
-    print(f"[warn] no usable FX time series for {local_cur}->{BASE_CURRENCY}, returning local prices")
+    aligned_fx = fx_series.reindex(series_local.index).ffill()
+    if BASE_CURRENCY == "USD" and local_cur.upper() == "INR":
+        # price_usd = price_inr / (INR per USD)
+        return series_local / aligned_fx
+    if BASE_CURRENCY == "INR" and local_cur.upper() == "USD":
+        # price_inr = price_usd * (INR per USD)
+        return series_local * aligned_fx
+    # fallback: no conversion rule
     return series_local
 
-# ------------------------ Build holdings per day -------------------------
-holdings = {sym: pd.Series(0.0, index=all_dates) for sym in symbols}
-invested_base = pd.Series(0.0, index=all_dates)  # cumulative invested (in BASE_CURRENCY)
+# ---------- Build holdings per day ----------
+holdings = {m["symbol"]: pd.Series(0.0, index=all_dates) for m in meta}
+invested_base = pd.Series(0.0, index=all_dates)  # cumulative invested in BASE
 
-# For invested cash, we need to convert each tx price into BASE on that date.
 def tx_price_to_base(symbol: str, price_local: float, on_date: str) -> float:
-    cur = sym_to_currency(symbol)
-    # Build a length-1 series to reuse convert_to_base logic with alignment
+    m = next(x for x in meta if x["symbol"] == symbol)
+    cur = m["currency"]
     tmp = pd.Series([price_local], index=pd.Index([on_date], dtype="string"))
     conv = convert_to_base(tmp, cur)
     return float(conv.iloc[0])
 
-for sym in symbols:
+for m in meta:
+    sym = m["symbol"]
     h = pd.Series(0.0, index=all_dates)
     sym_tx = tx[tx["symbol"] == sym]
     for _, row in sym_tx.iterrows():
         h.loc[h.index >= row["date"]] += float(row["qty"])
-        price_local = float(row.get("price", 0.0))
-        price_base = tx_price_to_base(sym, price_local, row["date"])
+        price_base = tx_price_to_base(sym, float(row.get("price", 0.0)), row["date"])
         invested_base.loc[invested_base.index >= row["date"]] += float(row["qty"]) * price_base
     holdings[sym] = h
 
-# ------------------------ Daily holdings value (in BASE) -----------------
+# ---------- Daily holdings value (in BASE) ----------
 values_base = pd.Series(0.0, index=all_dates, dtype=float)
 
-for sym in symbols:
-    qdf = price_map[sym].set_index("date")["close"]
-    qdf = ensure_series_index(all_dates, qdf)
-    local_cur = sym_to_currency(sym)
-    price_base_series = convert_to_base(qdf, local_cur)
+for m in meta:
+    sym = m["symbol"]
+    qdf = price_map[sym].set_index("date")["close"].reindex(all_dates).ffill()
+    price_base_series = convert_to_base(qdf, m["currency"])
     values_base += price_base_series * holdings[sym]
 
-# ------------------------ Cash & NAV ------------------------------------
-# Cash is the starting cash minus invested cash (floored at zero)
+# ---------- Cash & NAV ----------
 cash_base = (STARTING_CASH - invested_base).clip(lower=0.0)
-
 nav_base = (values_base + cash_base).round(4)
 
 # NAV index (100 = inception)
@@ -248,8 +286,7 @@ else:
     pnl_abs = (nav_base - base_val).round(2)
     pnl_pct = ((nav_base / base_val - 1.0) * 100.0).round(3)
 
-# ------------------------ Write outputs ---------------------------------
-# nav.json: full daily series
+# ---------- Write outputs ----------
 nav_df = pd.DataFrame({
     "date": all_dates,
     f"nav_{BASE_CURRENCY.lower()}": nav_base,
@@ -265,7 +302,6 @@ out_nav = DATA / "nav.json"
 nav_df.to_json(out_nav, orient="records", force_ascii=False)
 print(f"[ok] wrote {out_nav.relative_to(ROOT)} rows={len(nav_df)}")
 
-# nav_summary.json: headline stats
 latest_idx = len(all_dates) - 1
 latest = {
     "date": all_dates.iloc[latest_idx],
@@ -276,16 +312,14 @@ latest = {
     "pnl_abs": float(pnl_abs.iloc[latest_idx]) if not pd.isna(pnl_abs.iloc[latest_idx]) else None,
     "pnl_pct": float(pnl_pct.iloc[latest_idx]) if not pd.isna(pnl_pct.iloc[latest_idx]) else None
 }
-
 summary = {
     "base_currency": BASE_CURRENCY,
     "starting_cash": STARTING_CASH,
     "inception_date": inception if inception else None,
     "latest": latest
 }
-
 out_sum = DATA / "nav_summary.json"
 out_sum.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
 print(f"[ok] wrote {out_sum.relative_to(ROOT)}")
 
-print("[done] quotes + NAV generation complete")
+print("[done] quotes + NAV generation complete (Twelve Data)")
