@@ -1,57 +1,93 @@
 // scripts/stock.js
 (function () {
   const $ = sel => document.querySelector(sel);
-  const canvas = $('#priceChart');
 
-  // symbol from ?symbol=COALINDIA.NS
+  // ---- URL params ----
   const params = new URLSearchParams(location.search);
-  const SYMBOL = params.get('symbol');
-  if (!SYMBOL) {
-    canvas?.replaceWith('Missing ?symbol= in URL.');
-    return;
-  }
+  const urlSymbol = params.get('symbol');   // e.g. COALINDIA.NS
+  const urlSlug   = params.get('slug');     // e.g. coal-india
 
-  // Small helpers
+  // ---- helpers ----
+  const toSlug = (s) =>
+    String(s || '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+
   const jfetch = async (path) => {
     const res = await fetch(path, { cache: 'no-store' });
     if (!res.ok) throw new Error(`${path} -> ${res.status}`);
     return res.json();
   };
 
-  // Populate static bits
   const now = new Date();
   $('#year') && ($('#year').textContent = now.getFullYear());
-  $('#ticker') && ($('#ticker').textContent = SYMBOL);
 
-  async function renderReport() {
-    try {
-      // ✅ relative (no leading slash)
-      const resp = await fetch(`reports/${encodeURIComponent(SYMBOL)}.md`, { cache: 'no-store' });
-      if (!resp.ok) return;
-      const md = await resp.text();
-      $('#report').innerHTML = marked.parse(md);
-      const h1 = md.match(/^#\s+(.+)/m);
-      if (h1) {
-        $('#stockName') && ($('#stockName').textContent = h1[1].trim());
-        document.title = `${h1[1].trim()} – Stock Report`;
-      } else {
-        $('#stockName') && ($('#stockName').textContent = SYMBOL);
-      }
-    } catch {
-      $('#stockName') && ($('#stockName').textContent = SYMBOL);
+  function pickMetaBySlugOrSymbol(stocks, slug, symbol) {
+    // Try exact symbol first if provided
+    if (symbol) {
+      const bySym = stocks.find(s => (s.symbol || s.ticker) === symbol);
+      if (bySym) return { meta: bySym, symbol: bySym.symbol || bySym.ticker, slugGuess: slug || null };
     }
+
+    if (!slug) return null;
+
+    // Build candidate slug for each stock
+    for (const s of stocks) {
+      const sym = s.symbol || s.ticker || '';
+      const parts = String(sym).split('.');
+      const symNoEx = parts[0]; // e.g. COALINDIA from COALINDIA.NS
+      const candidates = [
+        s.slug,
+        s.name,
+        s.ticker,
+        s.symbol,
+        symNoEx
+      ].filter(Boolean).map(toSlug);
+
+      const want = toSlug(slug);
+      if (candidates.includes(want)) {
+        return { meta: s, symbol: sym, slugGuess: want };
+      }
+    }
+    return null;
   }
 
-  async function drawChart(meta) {
+  async function renderReport(meta, symbol, slugGuess) {
+    const tryPaths = [];
+    if (symbol) tryPaths.push(`reports/${encodeURIComponent(symbol)}.md`);
+    if (slugGuess) tryPaths.push(`reports/${encodeURIComponent(slugGuess)}.md`);
+
+    for (const path of tryPaths) {
+      try {
+        const resp = await fetch(path, { cache: 'no-store' });
+        if (!resp.ok) continue;
+        const md = await resp.text();
+        $('#report').innerHTML = marked.parse(md);
+        // use H1 as title if present
+        const h1 = md.match(/^#\s+(.+)/m);
+        const title = h1 ? h1[1].trim() : (meta?.name || symbol || slugGuess || 'Stock Report');
+        $('#stockName') && ($('#stockName').textContent = title);
+        document.title = `${title} – Stock Report`;
+        return;
+      } catch {}
+    }
+    // fallback
+    const title = meta?.name || symbol || slugGuess || 'Stock Report';
+    $('#stockName') && ($('#stockName').textContent = title);
+    $('#report') && ($('#report').textContent = 'Report not found.');
+  }
+
+  async function drawPriceChart(symbol, meta) {
+    const canvas = $('#priceChart');
     if (!canvas) return;
 
-    // ✅ relative path (no leading slash)
     let quotes;
     try {
-      quotes = await jfetch(`data/quotes/${encodeURIComponent(SYMBOL)}.json`);
+      quotes = await jfetch(`data/quotes/${encodeURIComponent(symbol)}.json`);
     } catch (e) {
       console.error(e);
-      canvas.replaceWith(`Price fetch failed for ${SYMBOL}. Check data/quotes/${SYMBOL}.json`);
+      canvas.replaceWith(`Price fetch failed for ${symbol}. Check data/quotes/${symbol}.json`);
       return;
     }
 
@@ -84,7 +120,7 @@
       type: 'line',
       data: {
         datasets: [
-          { label: `${SYMBOL} Close`, data: points, borderWidth: 2, pointRadius: 0, tension: 0.2 },
+          { label: `${symbol} Close`, data: points, borderWidth: 2, pointRadius: 0, tension: 0.2 },
           ...(buyLine.length ? [{ label: 'Buy Price', data: buyLine, borderDash: [6,6], borderWidth: 1.5, pointRadius: 0 }] : [])
         ]
       },
@@ -109,30 +145,37 @@
 
   async function main() {
     try {
-      // ✅ relative path (no leading slash)
       const stocks = await jfetch('data/stocks.json');
-      const meta = stocks.find(s => (s.symbol || s.ticker) === SYMBOL);
 
-      if (meta) {
-        $('#buyDate') && ($('#buyDate').textContent = meta.buy_date || '');
-        $('#qty') && ($('#qty').textContent = meta.qty ?? '');
-        $('#buyPrice') && ($('#buyPrice').textContent = meta.buy_price ?? '');
-        if (meta.qty && meta.buy_price) {
-          $('#cost') && ($('#cost').textContent = (meta.qty * meta.buy_price).toLocaleString());
-        }
-        $('#tags') && ($('#tags').textContent = (meta.tags || []).join(', '));
-        $('#priceNote') && ($('#priceNote').textContent = meta.buy_date
-          ? `Red dotted line marks buy at ${meta.buy_price} on ${meta.buy_date}.`
-          : '');
-      } else {
-        $('#priceNote') && ($('#priceNote').textContent = 'No metadata found for this symbol.');
+      // Decide which stock this page is for
+      const chosen = pickMetaBySlugOrSymbol(stocks, urlSlug, urlSymbol);
+      if (!chosen) {
+        const msg = urlSlug
+          ? `Unknown slug "${urlSlug}".`
+          : (urlSymbol ? `Unknown symbol "${urlSymbol}".` : 'Missing ?slug= or ?symbol=');
+        $('#priceChart')?.replaceWith(msg);
+        return;
       }
 
-      await renderReport();
-      await drawChart(meta);
+      const { meta, symbol, slugGuess } = chosen;
+
+      // Populate header/meta
+      $('#ticker') && ($('#ticker').textContent = symbol);
+      $('#buyDate') && ($('#buyDate').textContent = meta.buy_date || '');
+      $('#qty') && ($('#qty').textContent = meta.qty ?? '');
+      $('#buyPrice') && ($('#buyPrice').textContent = meta.buy_price ?? '');
+      if (meta.qty && meta.buy_price) {
+        $('#cost') && ($('#cost').textContent = (meta.qty * meta.buy_price).toLocaleString());
+      }
+      $('#tags') && ($('#tags').textContent = Array.isArray(meta.tags) ? meta.tags.join(', ') : (meta.tags || '') );
+      $('#priceNote') && ($('#priceNote').textContent =
+        meta.buy_date ? `Red dotted line marks buy at ${meta.buy_price} on ${meta.buy_date}.` : '');
+
+      await renderReport(meta, symbol, slugGuess);
+      await drawPriceChart(symbol, meta);
     } catch (e) {
       console.error('stock page error:', e);
-      canvas?.replaceWith('Stock page error — open console for details.');
+      $('#priceChart')?.replaceWith('Stock page error — open console for details.');
     }
   }
 
