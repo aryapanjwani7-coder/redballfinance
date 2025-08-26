@@ -78,10 +78,12 @@ jobs:
 
       - name: Run fetch_prices.py
         env:
-          SHEET_ID: ${{ secrets.SHEET_ID }}
+          SHEET_ID: "1-oAHFEvGr9lhvPoMXuoedmsHOrJY2r4AgsC47tjRBCs"
+          TAB_GIDS_JSON: ${{ secrets.TAB_GIDS_JSON }}
           BASE_CURRENCY: "USD"
           STARTING_CASH: "10000000"
           YEARS_BACK: "5"
+
           # Optional: uncomment and set if your tab names differ from the defaults
           # TAB_NAME_OVERRIDES: '{"COALINDIA.NS":"CoalIndia_NS","KIRLOSBROS.NS":"KBL_NS","USDINR":"FX"}'
         run: |
