@@ -1,7 +1,15 @@
 // scripts/chart-nav.js
 (async function drawNAV() {
+  const canvas = document.getElementById('navChart');
+  if (!canvas) return;
+
   try {
-    const res = await fetch('/data/nav.json', { cache: 'no-store' });
+    // ✅ relative path (no leading slash)
+    const res = await fetch('data/nav.json', { cache: 'no-store' });
+    if (!res.ok) {
+      canvas.replaceWith(`NAV fetch failed (${res.status}). Check data/nav.json path.`);
+      return;
+    }
     const rows = await res.json();
 
     const pts = rows
@@ -9,12 +17,8 @@
       .map(r => ({ x: new Date(r.date), y: Number(r.nav_usd) }))
       .sort((a, b) => a.x - b.x);
 
-    const canvas = document.getElementById('navChart');
-    if (!canvas) return;
-
     if (pts.length === 0) {
-      console.error('NAV: no valid points in /data/nav.json (field must be "nav_usd").');
-      canvas.replaceWith('NAV data not available.');
+      canvas.replaceWith('NAV data not available (no valid points in data/nav.json).');
       return;
     }
 
@@ -30,37 +34,26 @@
 
     new Chart(canvas.getContext('2d'), {
       type: 'line',
-      data: {
-        datasets: [{
-          label: 'Portfolio NAV (USD)',
-          data: pts,
-          borderWidth: 2,
-          pointRadius: 0,
-          tension: 0.2
-        }]
-      },
+      data: { datasets: [{
+        label: 'Portfolio NAV (USD)',
+        data: pts, borderWidth: 2, pointRadius: 0, tension: 0.2
+      }]},
       options: {
         responsive: true,
         interaction: { mode: 'index', intersect: false },
         plugins: {
           legend: { display: true },
-          tooltip: {
-            callbacks: {
-              label: (ctx) => ` NAV: $${ctx.parsed.y.toLocaleString()}`
-            }
-          }
+          tooltip: { callbacks: { label: (c) => ` NAV: $${c.parsed.y.toLocaleString()}` } }
         },
         scales: {
           x: { type: 'time', min: xMin, max: xMax, time: { unit: 'month' }, ticks: { maxTicksLimit: 8 } },
-          y: {
-            beginAtZero: false,
-            suggestedMin, suggestedMax,
-            ticks: { callback: v => '$' + Number(v).toLocaleString() }
-          }
+          y: { beginAtZero: false, suggestedMin, suggestedMax,
+               ticks: { callback: v => '$' + Number(v).toLocaleString() } }
         }
       }
     });
   } catch (e) {
     console.error('NAV chart error:', e);
+    canvas.replaceWith('NAV error — open console for details.');
   }
 })();
