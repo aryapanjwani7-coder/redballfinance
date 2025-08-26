@@ -1,124 +1,131 @@
 // scripts/stock.js
-
-// Read slug from URL (?slug=your-stock-slug)
-const params = new URLSearchParams(location.search);
-const slug = params.get('slug');
-
-// Tiny helpers
-function $ (sel, el=document){ return el.querySelector(sel); }
-function formatMoney(n){ return n?.toLocaleString(undefined,{style:'currency',currency:'INR'}) ?? '—'; }
-function formatDate(d){ try { return new Date(d).toLocaleDateString(); } catch(e){ return d || '—'; } }
-
-let metaItem = null;
-
-// Generic JSON loader with cache-bust
-async function loadJSON(path){
-  const res = await fetch(path + "?cb=" + Date.now());
-  if(!res.ok) throw new Error("Fetch failed " + path);
-  return res.json();
-}
-
-// Load metadata for this stock (from data/stocks.json) and fill the header
-async function loadMeta(){
-  const list = await loadJSON('data/stocks.json');
-  const item = list.find(s => s.slug === slug);
-  if(!item) throw new Error("Report not found for slug " + slug);
-  metaItem = item;
-
-  $('#stockName').textContent = item.name;
-  $('#ticker').textContent   = item.ticker;
-  $('#buyDate').textContent  = `Bought: ${formatDate(item.buy_date)}`;
-  $('#tags').innerHTML       = (item.tags||[]).map(t=>`<span class="tag">${t}</span>`).join(' ');
-  $('#qty').textContent      = item.qty ?? '—';
-  $('#buyPrice').textContent = formatMoney(item.buy_price);
-  $('#cost').textContent     = formatMoney((item.qty||0) * (item.buy_price||0));
-  $('#note').textContent     = item.note || '';
-
-  document.title             = `${item.ticker} – ${item.name} | Report`;
-  $('#titleTag')?.setAttribute('content', `${item.ticker} – ${item.name} report`);
-  $('#year').textContent     = new Date().getFullYear();
-}
-
-// Load the markdown report and render with marked.js
-async function loadReport(){
-  try{
-    const md = await (await fetch(`reports/${slug}.md?cb=${Date.now()}`)).text();
-    const html = marked.parse(md);
-    $('#report').innerHTML = html;
-  }catch{
-    $('#report').innerHTML = `<p>Report markdown not found yet.</p>`;
+(function () {
+  // --- helpers ---
+  const $ = sel => document.querySelector(sel);
+  const params = new URLSearchParams(location.search);
+  const SYMBOL = params.get('symbol'); // e.g. COALINDIA.NS
+  if (!SYMBOL) {
+    console.error('Missing ?symbol= in URL');
+    $('#priceChart')?.replaceWith('Missing symbol.');
+    return;
   }
-}
 
-// Draw the local price chart (from data/quotes/<symbol>.json) + buy price line
-async function drawPriceChart(){
-  const note = $('#priceNote');
-  try{
-    const sym = encodeURIComponent(metaItem.symbol || metaItem.ticker);
-    const quotes = await loadJSON(`data/quotes/${sym}.json`);
-    if(!quotes.length) throw new Error('No quotes');
+  // populate simple page bits early
+  const now = new Date(); $('#year') && ($('#year').textContent = now.getFullYear());
+  $('#ticker') && ($('#ticker').textContent = SYMBOL);
 
-    const labels = quotes.map(r => new Date(r.date));
-    const closeSeries = quotes.map(r => r.close);
+  async function loadJSON(path) {
+    const res = await fetch(path, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`Fetch failed ${res.status} ${path}`);
+    return res.json();
+  }
 
-    // Base dataset = close prices
-    const datasets = [{
-      label: "Close price",
-      data: closeSeries,
-      tension: 0.2,
-      pointRadius: 0,
-      borderWidth: 2
-    }];
+  async function renderReportIfPresent() {
+    try {
+      const mdUrl = `/reports/${encodeURIComponent(SYMBOL)}.md`;
+      const res = await fetch(mdUrl, { cache: 'no-store' });
+      if (!res.ok) return; // optional
+      const md = await res.text();
+      $('#report').innerHTML = marked.parse(md);
+      // Title from first heading if present
+      const h1 = md.match(/^#\s+(.+)/m);
+      if (h1) {
+        $('#stockName') && ($('#stockName').textContent = h1[1].trim());
+        document.title = `${h1[1].trim()} – Stock Report`;
+      } else {
+        $('#stockName') && ($('#stockName').textContent = SYMBOL);
+      }
+    } catch {
+      $('#stockName') && ($('#stockName').textContent = SYMBOL);
+    }
+  }
 
-    // Optional dashed line at your buy price (flat across the whole chart)
-    const buyPriceNum = Number(metaItem.buy_price);
-    if (!Number.isNaN(buyPriceNum) && buyPriceNum > 0){
-      datasets.push({
-        label: "Buy price",
-        data: quotes.map(() => buyPriceNum),
-        borderWidth: 1,
-        borderDash: [6, 4],
-        pointRadius: 0,
-        borderColor: "red" // make it obvious; remove if you prefer auto colors
-      });
+  async function drawPriceChart(meta) {
+    // fetch quotes
+    const quotes = await loadJSON(`/data/quotes/${encodeURIComponent(SYMBOL)}.json`);
+    const points = quotes
+      .filter(r => r && r.date && Number.isFinite(+r.close))
+      .map(r => ({ x: new Date(r.date), y: Number(r.close) }))
+      .sort((a, b) => a.x - b.x);
+
+    const canvas = $('#priceChart');
+    if (!canvas) return;
+
+    if (points.length === 0) {
+      console.error(`No price points in /data/quotes/${SYMBOL}.json`);
+      canvas.replaceWith('Price data not available.');
+      return;
     }
 
-    const ctx = document.getElementById('priceChart').getContext('2d');
-    new Chart(ctx, {
+    const xMin = points[0].x;
+    const xMax = points[points.length - 1].x;
+
+    const ys = points.map(p => p.y);
+    const buyPrice = Number(meta?.buy_price);
+    const yMin = Math.min(...ys, Number.isFinite(buyPrice) ? buyPrice : Infinity);
+    const yMax = Math.max(...ys, Number.isFinite(buyPrice) ? buyPrice : -Infinity);
+    const pad = (yMax - yMin) * 0.08 || Math.max(1, yMax * 0.08);
+    const suggestedMin = Math.max(0, yMin - pad);
+    const suggestedMax = yMax + pad;
+
+    const buyLine = Number.isFinite(buyPrice)
+      ? [{ x: xMin, y: buyPrice }, { x: xMax, y: buyPrice }]
+      : [];
+
+    new Chart(canvas.getContext('2d'), {
       type: 'line',
-      data: { labels, datasets },
+      data: {
+        datasets: [
+          {
+            label: `${SYMBOL} Close`,
+            data: points,
+            borderWidth: 2,
+            pointRadius: 0,
+            tension: 0.2
+          },
+          ...(buyLine.length ? [{
+            label: 'Buy Price',
+            data: buyLine,
+            borderDash: [6, 6],
+            borderWidth: 1.5,
+            pointRadius: 0
+          }] : [])
+        ]
+      },
       options: {
         responsive: true,
         interaction: { mode: 'index', intersect: false },
-        scales: {
-          x: { type: 'time', time: { unit: 'month' }, ticks: { maxTicksLimit: 8 } },
-          y: { beginAtZero: false }
-        },
         plugins: {
-          legend: { display: true } // shows "Close price" + "Buy price"
+          legend: { display: true },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => (
+                ctx.dataset.label === 'Buy Price'
+                  ? ` Buy: ${ctx.parsed.y}`
+                  : ` Close: ${ctx.parsed.y.toLocaleString()}`
+              )
+            }
+          }
+        },
+        scales: {
+          x: { type: 'time', min: xMin, max: xMax, time: { unit: 'month' }, ticks: { maxTicksLimit: 8 } },
+          y: { beginAtZero: false, suggestedMin, suggestedMax }
         }
       }
     });
+  }
 
-    if (note) note.textContent = "Auto-updated daily from cached closes.";
-  }catch(e){
-    console.error(e);
-    if (note) note.textContent = "Price data not available yet. Make sure data/quotes/<symbol>.json exists.";
-  }
-}
+  async function main() {
+    try {
+      // get meta (buy info) from stocks.json
+      const stocks = await loadJSON('/data/stocks.json');
+      const meta = stocks.find(s => (s.symbol || s.ticker) === SYMBOL);
 
-// Bootstrap the page
-(async function init(){
-  if(!slug){
-    $('#report').innerHTML = `<p>No slug provided.</p>`;
-    return;
-  }
-  try{
-    await loadMeta();
-    await loadReport();
-    await drawPriceChart();
-  }catch(e){
-    console.error(e);
-    $('#report').innerHTML = `<p>${e.message}</p>`;
-  }
-})();
+      if (meta) {
+        $('#buyDate') && ($('#buyDate').textContent = meta.buy_date || '');
+        $('#qty') && ($('#qty').textContent = meta.qty ?? '');
+        $('#buyPrice') && ($('#buyPrice').textContent = meta.buy_price ?? '');
+        if (meta.qty && meta.buy_price) {
+          $('#cost') && ($('#cost').textContent = (meta.qty * meta.buy_price).toLocaleString());
+        }
+        $('#tags') && ($
