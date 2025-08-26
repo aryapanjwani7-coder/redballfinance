@@ -1,4 +1,4 @@
-name: Fetch Prices & Build NAV (Google Sheets)
+name: Fetch Prices & Build NAV (Sheets by Tab Name)
 
 on:
   schedule:
@@ -20,10 +20,6 @@ jobs:
       - name: Ensure paths
         run: |
           mkdir -p data/quotes scripts/ci
-          ls -la
-          ls -la data || true
-          ls -la scripts || true
-          ls -la scripts/ci || true
 
       - name: Check stocks.json exists & valid JSON
         run: |
@@ -36,7 +32,31 @@ jobs:
             echo "::error::data/stocks.json is not valid JSON"
             exit 1
           fi
-          head -n 80 data/stocks.json
+          echo "stocks.json snippet:"
+          head -n 60 data/stocks.json
+
+      - name: Extract tab names we will fetch (for probe)
+        id: tabs
+        run: |
+          # Build a CSV list of tab names from symbols (COALINDIA.NS -> COALINDIA_NS)
+          TABS=$(jq -r '.[].symbol' data/stocks.json | awk '{gsub(/\./,"_"); print toupper($0)}' | paste -sd "," -)
+          echo "tabs=$TABS,USDINR" >> $GITHUB_OUTPUT
+
+      - name: Probe published CSV endpoints (optional but helpful)
+        env:
+          SHEET_ID: ${{ secrets.SHEET_ID }}
+          TABS: ${{ steps.tabs.outputs.tabs }}
+        run: |
+          IFS=',' read -ra TABLIST <<< "$TABS"
+          for TAB in "${TABLIST[@]}"; do
+            URL="https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${TAB}"
+            echo "PROBE $TAB -> $URL"
+            # show HTTP status and first 200 bytes
+            code=$(curl -s -o /tmp/x.csv -w "%{http_code}" "$URL" || true)
+            head -c 200 /tmp/x.csv || true
+            echo
+            echo "HTTP $code"
+          done
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -54,14 +74,16 @@ jobs:
             echo "::error::scripts/ci/fetch_prices.py not found (path must be scripts/ci/fetch_prices.py)"
             exit 1
           fi
-          sed -n '1,220p' scripts/ci/fetch_prices.py
+          sed -n '1,200p' scripts/ci/fetch_prices.py
 
       - name: Run fetch_prices.py
         env:
           SHEET_ID: ${{ secrets.SHEET_ID }}
-          BASE_CURRENCY: "USD"        
-          STARTING_CASH: "10000000"   # 10M (interpreted in BASE_CURRENCY)
+          BASE_CURRENCY: "USD"
+          STARTING_CASH: "10000000"
           YEARS_BACK: "5"
+          # Optional: uncomment and set if your tab names differ from the defaults
+          # TAB_NAME_OVERRIDES: '{"COALINDIA.NS":"CoalIndia_NS","KIRLOSBROS.NS":"KBL_NS","USDINR":"FX"}'
         run: |
           set -euo pipefail
           python -u scripts/ci/fetch_prices.py
