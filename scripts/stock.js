@@ -1,33 +1,35 @@
 // scripts/stock.js
 (function () {
-  // --- helpers ---
   const $ = sel => document.querySelector(sel);
+  const canvas = $('#priceChart');
+
+  // symbol from ?symbol=COALINDIA.NS
   const params = new URLSearchParams(location.search);
-  const SYMBOL = params.get('symbol'); // e.g. COALINDIA.NS
+  const SYMBOL = params.get('symbol');
   if (!SYMBOL) {
-    console.error('Missing ?symbol= in URL');
-    $('#priceChart')?.replaceWith('Missing symbol.');
+    canvas?.replaceWith('Missing ?symbol= in URL.');
     return;
   }
 
-  // populate simple page bits early
-  const now = new Date(); $('#year') && ($('#year').textContent = now.getFullYear());
+  // Small helpers
+  const jfetch = async (path) => {
+    const res = await fetch(path, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`${path} -> ${res.status}`);
+    return res.json();
+  };
+
+  // Populate static bits
+  const now = new Date();
+  $('#year') && ($('#year').textContent = now.getFullYear());
   $('#ticker') && ($('#ticker').textContent = SYMBOL);
 
-  async function loadJSON(path) {
-    const res = await fetch(path, { cache: 'no-store' });
-    if (!res.ok) throw new Error(`Fetch failed ${res.status} ${path}`);
-    return res.json();
-  }
-
-  async function renderReportIfPresent() {
+  async function renderReport() {
     try {
-      const mdUrl = `/reports/${encodeURIComponent(SYMBOL)}.md`;
-      const res = await fetch(mdUrl, { cache: 'no-store' });
-      if (!res.ok) return; // optional
-      const md = await res.text();
+      // ✅ relative (no leading slash)
+      const resp = await fetch(`reports/${encodeURIComponent(SYMBOL)}.md`, { cache: 'no-store' });
+      if (!resp.ok) return;
+      const md = await resp.text();
       $('#report').innerHTML = marked.parse(md);
-      // Title from first heading if present
       const h1 = md.match(/^#\s+(.+)/m);
       if (h1) {
         $('#stockName') && ($('#stockName').textContent = h1[1].trim());
@@ -40,19 +42,25 @@
     }
   }
 
-  async function drawPriceChart(meta) {
-    // fetch quotes
-    const quotes = await loadJSON(`/data/quotes/${encodeURIComponent(SYMBOL)}.json`);
+  async function drawChart(meta) {
+    if (!canvas) return;
+
+    // ✅ relative path (no leading slash)
+    let quotes;
+    try {
+      quotes = await jfetch(`data/quotes/${encodeURIComponent(SYMBOL)}.json`);
+    } catch (e) {
+      console.error(e);
+      canvas.replaceWith(`Price fetch failed for ${SYMBOL}. Check data/quotes/${SYMBOL}.json`);
+      return;
+    }
+
     const points = quotes
       .filter(r => r && r.date && Number.isFinite(+r.close))
       .map(r => ({ x: new Date(r.date), y: Number(r.close) }))
       .sort((a, b) => a.x - b.x);
 
-    const canvas = $('#priceChart');
-    if (!canvas) return;
-
     if (points.length === 0) {
-      console.error(`No price points in /data/quotes/${SYMBOL}.json`);
       canvas.replaceWith('Price data not available.');
       return;
     }
@@ -76,20 +84,8 @@
       type: 'line',
       data: {
         datasets: [
-          {
-            label: `${SYMBOL} Close`,
-            data: points,
-            borderWidth: 2,
-            pointRadius: 0,
-            tension: 0.2
-          },
-          ...(buyLine.length ? [{
-            label: 'Buy Price',
-            data: buyLine,
-            borderDash: [6, 6],
-            borderWidth: 1.5,
-            pointRadius: 0
-          }] : [])
+          { label: `${SYMBOL} Close`, data: points, borderWidth: 2, pointRadius: 0, tension: 0.2 },
+          ...(buyLine.length ? [{ label: 'Buy Price', data: buyLine, borderDash: [6,6], borderWidth: 1.5, pointRadius: 0 }] : [])
         ]
       },
       options: {
@@ -97,15 +93,11 @@
         interaction: { mode: 'index', intersect: false },
         plugins: {
           legend: { display: true },
-          tooltip: {
-            callbacks: {
-              label: (ctx) => (
-                ctx.dataset.label === 'Buy Price'
-                  ? ` Buy: ${ctx.parsed.y}`
-                  : ` Close: ${ctx.parsed.y.toLocaleString()}`
-              )
-            }
-          }
+          tooltip: { callbacks: {
+            label: (c) => c.dataset.label === 'Buy Price'
+              ? ` Buy: ${c.parsed.y}`
+              : ` Close: ${c.parsed.y.toLocaleString()}`
+          }}
         },
         scales: {
           x: { type: 'time', min: xMin, max: xMax, time: { unit: 'month' }, ticks: { maxTicksLimit: 8 } },
@@ -117,8 +109,8 @@
 
   async function main() {
     try {
-      // get meta (buy info) from stocks.json
-      const stocks = await loadJSON('/data/stocks.json');
+      // ✅ relative path (no leading slash)
+      const stocks = await jfetch('data/stocks.json');
       const meta = stocks.find(s => (s.symbol || s.ticker) === SYMBOL);
 
       if (meta) {
@@ -128,4 +120,21 @@
         if (meta.qty && meta.buy_price) {
           $('#cost') && ($('#cost').textContent = (meta.qty * meta.buy_price).toLocaleString());
         }
-        $('#tags') && ($
+        $('#tags') && ($('#tags').textContent = (meta.tags || []).join(', '));
+        $('#priceNote') && ($('#priceNote').textContent = meta.buy_date
+          ? `Red dotted line marks buy at ${meta.buy_price} on ${meta.buy_date}.`
+          : '');
+      } else {
+        $('#priceNote') && ($('#priceNote').textContent = 'No metadata found for this symbol.');
+      }
+
+      await renderReport();
+      await drawChart(meta);
+    } catch (e) {
+      console.error('stock page error:', e);
+      canvas?.replaceWith('Stock page error — open console for details.');
+    }
+  }
+
+  main();
+})();
