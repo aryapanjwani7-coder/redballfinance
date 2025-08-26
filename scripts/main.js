@@ -1,82 +1,116 @@
-const $ = (sel, el=document) => el.querySelector(sel);
-const $$ = (sel, el=document) => [...el.querySelectorAll(sel)];
+// scripts/main.js
+(function () {
+  const $ = (sel) => document.querySelector(sel);
+  const $$ = (sel) => document.querySelectorAll(sel);
 
-const state = {
-  stocks: [],
-  filtered: []
-};
+  // Turn a name/symbol/ticker into a clean slug like "coal-india"
+  const toSlug = (s) =>
+    String(s || "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
 
-function formatMoney(n){ return n?.toLocaleString(undefined,{style:'currency',currency:'INR'}) ?? '—'; }
-function formatDate(d){ try { return new Date(d).toLocaleDateString(); } catch(e){ return d || '—'; } }
+  // Helper to safely read .textContent
+  const setText = (sel, val) => { const el = $(sel); if (el) el.textContent = val ?? ""; };
 
-function renderTable(rows){
-  const tbody = $('#portfolioTable tbody');
-  tbody.innerHTML = rows.map(s => {
-    const cost = s.qty * s.buy_price;
-    const tags = (s.tags||[]).map(t=>`<span class="tag">${t}</span>`).join(' ');
-    const reportLink = s.slug ? `<a href="stock.html?slug=${encodeURIComponent(s.slug)}">Open</a>` : '—';
-    return `<tr>
-      <td><strong>${s.ticker}</strong></td>
-      <td>${s.name}</td>
-      <td>${formatDate(s.buy_date)}</td>
-      <td>${s.qty}</td>
-      <td>${formatMoney(s.buy_price)}</td>
-      <td>${formatMoney(cost)}</td>
-      <td>${tags}</td>
-      <td>${reportLink}</td>
-    </tr>`;
-  }).join('');
-}
+  async function loadJSON(path) {
+    const res = await fetch(path, { cache: "no-store" });
+    if (!res.ok) throw new Error(`${path} -> ${res.status}`);
+    return res.json();
+  }
 
-function renderRecent(stocks){
-  const container = $('#recentGrid');
-  // Sort by buy_date desc, take 6
-  const recent = [...stocks].sort((a,b)=>new Date(b.buy_date)-new Date(a.buy_date)).slice(0,6);
-  container.innerHTML = recent.map(s=>`
-    <div class="card-mini">
-      <div class="tag">${s.ticker}</div>
-      <h4>${s.name}</h4>
-      <p class="note">${s.thesis_short || ''}</p>
-      <a href="stock.html?slug=${encodeURIComponent(s.slug)}">Read report →</a>
-    </div>
-  `).join('');
-}
+  function computeSlug(stock) {
+    // Prefer explicit slug if present
+    if (stock.slug) return toSlug(stock.slug);
+    // Try name, then ticker, then symbol-without-exchange
+    const sym = stock.symbol || stock.ticker || "";
+    const symNoEx = String(sym).split(".")[0];
+    return toSlug(stock.name || stock.ticker || symNoEx || sym);
+  }
 
-function populateTags(stocks){
-  const unique = [...new Set(stocks.flatMap(s => s.tags || []))];
-  const sel = $('#tagFilter');
-  unique.sort().forEach(t=>{
-    const opt = document.createElement('option');
-    opt.value = t; opt.textContent = t;
-    sel.appendChild(opt);
-  });
-}
+  function fmtCurrency(n) {
+    if (!Number.isFinite(+n)) return "";
+    return Number(n).toLocaleString();
+  }
 
-function applyFilters(){
-  const q = $('#search').value.trim().toLowerCase();
-  const tag = $('#tagFilter').value;
-  state.filtered = state.stocks.filter(s=>{
-    const matchesQ = !q || (s.ticker.toLowerCase().includes(q) || s.name.toLowerCase().includes(q));
-    const matchesTag = !tag || (s.tags||[]).includes(tag);
-    return matchesQ && matchesTag;
-  });
-  renderTable(state.filtered);
-}
+  function addRow(tbody, stock) {
+    const slug = computeSlug(stock);
+    const sym = stock.symbol || stock.ticker || "";
+    const name = stock.name || sym;
+    const buyDate = stock.buy_date || "";
+    const qty = stock.qty ?? "";
+    const buyPrice = stock.buy_price ?? "";
+    const cost = (Number(qty) && Number(buyPrice)) ? (qty * buyPrice) : "";
 
-async function init(){
-  $('#year').textContent = new Date().getFullYear();
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${sym}</td>
+      <td>${name}</td>
+      <td>${buyDate}</td>
+      <td>${qty}</td>
+      <td>${buyPrice}</td>
+      <td>${fmtCurrency(cost)}</td>
+      <td>${Array.isArray(stock.tags) ? stock.tags.join(", ") : (stock.tags || "")}</td>
+      <td><a class="btn small" href="stock.html?slug=${encodeURIComponent(slug)}">Read report</a></td>
+    `;
+    tbody.appendChild(tr);
+  }
 
-  const res = await fetch('data/stocks.json?cachebust='+Date.now());
-  state.stocks = await res.json();
-  state.filtered = state.stocks;
+  function addRecentCard(grid, stock) {
+    const slug = computeSlug(stock);
+    const sym = stock.symbol || stock.ticker || "";
+    const name = stock.name || sym;
+    const buyDate = stock.buy_date || "";
+    const cost = (Number(stock.qty) && Number(stock.buy_price))
+      ? (stock.qty * stock.buy_price)
+      : null;
 
-  populateTags(state.stocks);
-  renderTable(state.stocks);
-  renderRecent(state.stocks);
+    const div = document.createElement("div");
+    div.className = "card soft";
+    div.innerHTML = `
+      <h4>${name}</h4>
+      <p class="meta">${sym} • ${buyDate}</p>
+      ${cost ? `<p class="meta">Cost: ${fmtCurrency(cost)}</p>` : ""}
+      <a class="btn primary" href="stock.html?slug=${encodeURIComponent(slug)}">Read report</a>
+    `;
+    grid.appendChild(div);
+  }
 
-  $('#search').addEventListener('input', applyFilters);
-  $('#tagFilter').addEventListener('change', applyFilters);
-}
+  async function renderPortfolio() {
+    // 1) Load stocks
+    let stocks = [];
+    try {
+      stocks = await loadJSON("data/stocks.json");
+      if (!Array.isArray(stocks)) throw new Error("stocks.json must be an array");
+    } catch (e) {
+      console.error(e);
+      const table = $("#portfolioTable tbody");
+      if (table) table.innerHTML = `<tr><td colspan="8">Failed to load data/stocks.json</td></tr>`;
+      return;
+    }
 
-init();
+    // 2) Table
+    const tbody = document.querySelector("#portfolioTable tbody");
+    if (tbody) {
+      tbody.innerHTML = "";
+      stocks.forEach(s => addRow(tbody, s));
+    }
 
+    // 3) Recent (take the last 3 by buy_date, if available)
+    const grid = $("#recentGrid");
+    if (grid) {
+      grid.innerHTML = "";
+      const withDate = stocks
+        .map(s => ({ s, d: Date.parse(s.buy_date || "") || 0 }))
+        .sort((a, b) => b.d - a.d)
+        .slice(0, 3)
+        .map(x => x.s);
+      withDate.forEach(s => addRecentCard(grid, s));
+    }
+
+    // 4) Footer year
+    setText("#year", new Date().getFullYear());
+  }
+
+  renderPortfolio();
+})();
