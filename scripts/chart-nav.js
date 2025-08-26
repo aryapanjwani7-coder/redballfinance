@@ -9,12 +9,13 @@
     const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd.trim());
     if (!m) return null;
     const y = +m[1], mo = +m[2] - 1, d = +m[3];
-    const dt = new Date(Date.UTC(y, mo, d)); // force UTC midnight
+    const dt = new Date(Date.UTC(y, mo, d)); // UTC midnight
     return isNaN(dt) ? null : dt;
   }
 
   async function jfetch(path) {
-    const res = await fetch(path, { cache: 'no-store' });
+    // cache-bust to defeat any CDN staleness
+    const res = await fetch(`${path}?v=${Date.now()}`, { cache: 'no-store' });
     if (!res.ok) throw new Error(`${path} -> ${res.status}`);
     return res.json();
   }
@@ -27,49 +28,61 @@
         jfetch('data/nav_summary.json').catch(() => ({}))
       ]);
 
-      if (!Array.isArray(rows) || rows.length === 0) {
-        canvas.replaceWith('NAV data not available (empty data/nav.json).');
-        return;
+      // ---- pick nav key automatically (nav_usd preferred) ----
+      let pts = [];
+      let navKey = null;
+
+      if (Array.isArray(rows) && rows.length > 0) {
+        const keys = Object.keys(rows[0] || {});
+        navKey =
+          keys.find(k => k.toLowerCase() === 'nav_usd') ||
+          keys.find(k => /^nav(_|$)/i.test(k)); // nav, nav_inr, etc.
+
+        if (navKey) {
+          pts = rows
+            .map(r => ({ x: parseYMD(r.date), y: Number(r[navKey]) }))
+            .filter(p => p.x && Number.isFinite(p.y) && p.y > 0)
+            .sort((a, b) => a.x - b.x);
+        }
       }
 
-      // pick the correct nav field automatically
-      const keys = Object.keys(rows[0] || {});
-      const navKey =
-        keys.find(k => k.toLowerCase() === 'nav_usd') ||
-        keys.find(k => /^nav(_|$)/i.test(k)); // nav, nav_inr, navIndex etc.
-      if (!navKey) {
-        canvas.replaceWith(`NAV data not available (no 'nav' field in nav.json). Keys: ${keys.join(', ')}`);
-        return;
-      }
+      // ---- If no valid points (e.g., file has nulls), build a minimal fallback
+      //      from summary: starting_cash at inception_date -> latest.nav at latest.date
+      if (pts.length === 0 && summary && summary.inception_date && summary.latest?.date && Number.isFinite(+summary.latest?.nav)) {
+        const inception = parseYMD(summary.inception_date);
+        const latestDate = parseYMD(summary.latest.date);
+        const startCash = Number(summary.starting_cash) || Number(summary.latest.nav) || 0;
+        const latestNav = Number(summary.latest.nav);
 
-      // Build points and filter invalids
-      let pts = rows
-        .map(r => ({ x: parseYMD(r.date), y: Number(r[navKey]) }))
-        .filter(p => p.x && Number.isFinite(p.y) && p.y > 0)
-        .sort((a, b) => a.x - b.x);
+        if (inception && latestDate && latestNav > 0 && startCash > 0) {
+          pts = [
+            { x: inception, y: startCash },
+            { x: latestDate, y: latestNav }
+          ].sort((a, b) => a.x - b.x);
+        }
+      }
 
       if (pts.length === 0) {
-        canvas.replaceWith(`NAV data not available (no valid ${navKey} values).`);
+        canvas.replaceWith('NAV data not available (no valid values).');
         return;
       }
 
-      // Start x-axis at inception_date if provided; else first point
+      // Filter from inception_date forward if provided
       const inceptionStr = summary?.inception_date;
       const inception = inceptionStr ? parseYMD(inceptionStr) : null;
       if (inception) {
         pts = pts.filter(p => p.x >= inception);
-      }
-
-      if (pts.length === 0) {
-        canvas.replaceWith('NAV data filtered to inception has no points. Check inception_date in nav_summary.json.');
-        return;
+        if (pts.length === 0) {
+          canvas.replaceWith('NAV data filtered to inception has no points.');
+          return;
+        }
       }
 
       // X range
       const xMin = pts[0].x;
       const xMax = pts[pts.length - 1].x;
 
-      // Y autoscale with padding
+      // Y autoscale with padding (will keep adapting as values change)
       const ys = pts.map(p => p.y);
       const yMin = Math.min(...ys);
       const yMax = Math.max(...ys);
@@ -94,7 +107,9 @@
           plugins: {
             legend: { display: true },
             tooltip: {
-              callbacks: { label: (ctx) => ` NAV: $${ctx.parsed.y.toLocaleString()}` }
+              callbacks: {
+                label: (ctx) => ` NAV: $${ctx.parsed.y.toLocaleString()}`
+              }
             }
           },
           scales: {
