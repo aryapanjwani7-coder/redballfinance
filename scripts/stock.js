@@ -24,19 +24,16 @@
   $('#year') && ($('#year').textContent = now.getFullYear());
 
   function pickMetaBySlugOrSymbol(stocks, slug, symbol) {
-    // Try exact symbol first if provided
     if (symbol) {
       const bySym = stocks.find(s => (s.symbol || s.ticker) === symbol);
       if (bySym) return { meta: bySym, symbol: bySym.symbol || bySym.ticker, slugGuess: slug || null };
     }
-
     if (!slug) return null;
 
-    // Build candidate slug for each stock
     for (const s of stocks) {
       const sym = s.symbol || s.ticker || '';
       const parts = String(sym).split('.');
-      const symNoEx = parts[0]; // e.g. COALINDIA from COALINDIA.NS
+      const symNoEx = parts[0];
       const candidates = [
         s.slug,
         s.name,
@@ -64,7 +61,6 @@
         if (!resp.ok) continue;
         const md = await resp.text();
         $('#report').innerHTML = marked.parse(md);
-        // use H1 as title if present
         const h1 = md.match(/^#\s+(.+)/m);
         const title = h1 ? h1[1].trim() : (meta?.name || symbol || slugGuess || 'Stock Report');
         $('#stockName') && ($('#stockName').textContent = title);
@@ -72,7 +68,6 @@
         return;
       } catch {}
     }
-    // fallback
     const title = meta?.name || symbol || slugGuess || 'Stock Report';
     $('#stockName') && ($('#stockName').textContent = title);
     $('#report') && ($('#report').textContent = 'Report not found.');
@@ -84,7 +79,7 @@
 
     let quotes;
     try {
-      quotes = await jfetch(`data/quotes/${encodeURIComponent(symbol)}.json`);
+      quotes = await (await fetch(`data/quotes/${encodeURIComponent(symbol)}.json`, { cache: 'no-store' })).json();
     } catch (e) {
       console.error(e);
       canvas.replaceWith(`Price fetch failed for ${symbol}. Check data/quotes/${symbol}.json`);
@@ -146,8 +141,6 @@
   async function main() {
     try {
       const stocks = await jfetch('data/stocks.json');
-
-      // Decide which stock this page is for
       const chosen = pickMetaBySlugOrSymbol(stocks, urlSlug, urlSymbol);
       if (!chosen) {
         const msg = urlSlug
@@ -159,7 +152,6 @@
 
       const { meta, symbol, slugGuess } = chosen;
 
-      // Populate header/meta
       $('#ticker') && ($('#ticker').textContent = symbol);
       $('#buyDate') && ($('#buyDate').textContent = meta.buy_date || '');
       $('#qty') && ($('#qty').textContent = meta.qty ?? '');
