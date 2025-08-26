@@ -1,14 +1,14 @@
 {
   "base_currency": "USD",
   "starting_cash": 10000000.0,
-  "inception_date": "2020-07-28",
+  "inception_date": "2025-08-11",
   "latest": {
-    "date": "2025-08-25",
-    "nav": 10000059.6062,
+    "date": "2025-08-26",
+    "nav": 10000044.0027,
     "cash": 9998697.186714828,
-    "holdings": 1362.4194359359813,
+    "holdings": 1346.8159894805149,
     "invested": 1302.8132851715907,
-    "pnl_abs": 59.61,
-    "pnl_pct": 0.001
+    "pnl_abs": 156.32,
+    "pnl_pct": 0.002
   }
 }
