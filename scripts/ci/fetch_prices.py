@@ -154,20 +154,36 @@ def main():
             invested_usd.loc[invested_usd.index>=row["date"]] += float(row["qty"])*tx_to_usd(sym, float(row.get("price",0.0)), row["date"])
         holdings[sym]=h
 
-    values_usd=pd.Series(0.0, index=all_dates, dtype=float)
+    values_usd = pd.Series(0.0, index=all_dates, dtype=float)
     for sym in symbols:
-        s = price_map[sym].set_index("date")["close"].reindex(all_dates).ffill()
-        values_usd += series_to_usd(s, sym) * holdings[sym]
+        # Align to our calendar; forward-fill known prices; then fill leading gaps with 0
+        s = price_map[sym].set_index("date")["close"].reindex(all_dates).ffill().fillna(0.0)
+        s_usd = series_to_usd(s, sym)
+        # Important: NaN * 0 => NaN, so make sure s_usd has no NaN’s before multiplying
+        values_usd += s_usd * holdings[sym]
+
 
     cash_usd = (STARTING_CASH - invested_usd).clip(lower=0.0)
     nav_usd  = (values_usd + cash_usd).round(4)
 
-    nonzero = nav_usd[nav_usd>0]
-    if nonzero.empty:
-        inception=None; nav_idx=pd.Series(np.nan, index=all_dates); pnl_abs=pd.Series(np.nan, index=all_dates); pnl_pct=pd.Series(np.nan, index=all_dates)
+    # Inception = first date money was actually invested (or first non-zero NAV as fallback)
+    invested_positive = invested_usd[invested_usd > 0]
+    if len(invested_positive):
+        inception = invested_positive.index.min()
     else:
-        inception=nonzero.index.min(); base=nav_usd.loc[inception]
-        nav_idx=(nav_usd/base*100.0).round(4); pnl_abs=(nav_usd-base).round(2); pnl_pct=((nav_usd/base-1.0)*100.0).round(3)
+        nonzero = nav_usd[nav_usd > 0]
+        inception = nonzero.index.min() if len(nonzero) else None
+    
+    if inception is None:
+        nav_index = pd.Series(np.nan, index=all_dates)
+        pnl_abs = pd.Series(np.nan, index=all_dates)
+        pnl_pct = pd.Series(np.nan, index=all_dates)
+    else:
+        base_val = nav_usd.loc[inception]
+        nav_index = (nav_usd / base_val * 100.0).round(4)
+        pnl_abs = (nav_usd - base_val).round(2)
+        pnl_pct = ((nav_usd / base_val - 1.0) * 100.0).round(3)
+
 
     nav_df=pd.DataFrame({
         "date":all_dates,"nav_usd":nav_usd,"cash_usd":cash_usd.round(4),"holdings_usd":values_usd.round(4),
