@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>About – Red Ball Finance</title>
+  <meta name="description" content="About Red Ball Finance and how this paper portfolio works." />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <a href="index.html" class="logo-wrap">
+        <img src="assets/logo.png" alt="Red Ball Finance" class="logo" />
+      </a>
+      <nav class="nav">
+        <a href="index.html">Portfolio</a>
+        <a href="about.html" class="active">About</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="card">
+      <h1>About</h1>
+      <p class="lead">
+        Red Ball Finance is a transparent, educational paper portfolio. Every position has a public thesis,
+        and performance is tracked daily using market-close data.
+      </p>
+
+      <h2>How the site works</h2>
+      <ul class="bullets">
+        <li><strong>Paper portfolio:</strong> No real money is moved. It’s built for learning and accountability.</li>
+        <li><strong>NAV:</strong> Shows total value in USD (cash + marked-to-market holdings), indexed to 100 at inception.</li>
+        <li><strong>Stock pages:</strong> Each page includes the local-currency price chart and a written report.</li>
+        <li><strong>Data:</strong> Prices are fetched from a Google Sheet; buys are defined in <code>data/transactions.json</code>.</li>
+      </ul>
+
+      <h2>About me</h2>
+      <p>
+        (Add a short bio here. If you share a headshot, I’ll add it to this page and the header.)
+      </p>
+
+      <h2>Contact</h2>
+      <p>
+        Email: <a href="mailto:you@example.com">you@example.com</a><br/>
+        Twitter/X: <a href="https://x.com/yourhandle" target="_blank" rel="noopener">@yourhandle</a>
+      </p>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <span>© <span id="year"></span> Red Ball Finance</span>
+      <a href="index.html">Back to portfolio</a>
+    </div>
+  </footer>
+
+  <script>
+    const y = new Date().getFullYear();
+    const el = document.getElementById('year');
+    if (el) el.textContent = y;
+  </script>
+</body>
+</html>
