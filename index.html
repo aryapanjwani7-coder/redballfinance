@@ -4,25 +4,20 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Red Ball Finance – Paper Portfolio</title>
-  <meta name="description" content="I track a transparent paper portfolio and write clear, honest reports on every stock I add—what I saw, why I bought, and what would make me sell." />
+  <meta name="description" content="I track a transparent paper portfolio and publish the exact rationale behind each buy." />
   <link rel="preconnect" href="https://unpkg.com">
   <link rel="stylesheet" href="styles.css" />
-
-  <!-- Chart libs FIRST (in this order). Use defer so they execute after parsing, in order. -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4" defer></script>
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3" defer></script>
-
-  <!-- Your scripts that rely on Chart.js + date adapter -->
-  <script src="scripts/main.js" defer></script>
-  <script src="scripts/chart-nav.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 </head>
 <body>
   <header class="site-header">
     <div class="container header-inner">
-      <img src="assets/logo.svg" alt="Logo" class="logo" />
+      <a href="index.html" class="logo-wrap">
+        <img src="assets/logo.png" alt="Red Ball Finance" class="logo" />
+      </a>
       <nav class="nav">
         <a href="index.html" class="active">Portfolio</a>
-        <a href="#how-it-works">About</a>
+        <a href="about.html">About</a>
       </nav>
     </div>
   </header>
@@ -47,8 +42,12 @@
     <section id="nav" class="card">
       <h2>Portfolio NAV</h2>
       <canvas id="navChart" height="120"></canvas>
-      <p class="note">Indexed to 100 at first investment date. Updates daily after market data is available.</p>
+      <p class="note">Indexed to 100 at first investment date. Updates daily after market data is available. (USD)</p>
     </section>
+
+    <!-- Chart.js + date adapter -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3"></script>
 
     <section id="portfolio" class="card">
       <div class="section-head">
@@ -68,8 +67,8 @@
               <th>Company</th>
               <th>Buy Date</th>
               <th>Qty</th>
-              <th>Buy Price</th>
-              <th>Cost</th>
+              <th>Buy Price (local)</th>
+              <th>Cost (local)</th>
               <th>Tags</th>
               <th>Report</th>
             </tr>
@@ -77,21 +76,11 @@
           <tbody><!-- filled by JS --></tbody>
         </table>
       </div>
-      <p class="note">Prices are imported automatically daily.</p>
     </section>
 
     <section id="recent" class="card">
       <h2>Recent picks</h2>
       <div id="recentGrid" class="grid"><!-- filled by JS --></div>
-    </section>
-
-    <section id="how-it-works" class="card">
-      <h2>What this is</h2>
-      <ol class="bullets">
-        <li>Every position has a written thesis (posted as a markdown report).</li>
-        <li>I track cost basis, position size, and updates over time.</li>
-        <li>It’s a paper portfolio—purpose is learning, clarity, and accountability.</li>
-      </ol>
     </section>
   </main>
 
@@ -101,5 +90,8 @@
       <a href="https://github.com" rel="noopener">Source</a>
     </div>
   </footer>
+
+  <script src="scripts/main.js" defer></script>
+  <script src="scripts/chart-nav.js" defer></script>
 </body>
 </html>
