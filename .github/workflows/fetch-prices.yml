@@ -100,14 +100,15 @@ jobs:
           head -c 1200 data/nav.json || true
           echo
 
-      - name: Commit changes (if any)
+      - name: Commit & push data
         run: |
-          if [[ -n $(git status --porcelain) ]]; then
-            git config user.name "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
-            git add data/quotes data/nav.json data/nav_summary.json
-            git commit -m "chore(data): update quotes & nav [skip ci]" || true
-            git push || echo "::warning::Push failed (protected branch). Data was generated but not pushed."
-          else
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/*.json data/quotes/*.json || true
+          if git diff --cached --quiet; then
             echo "No changes to commit."
+          else
+            git commit -m "Update data (quotes, nav, positions) [skip ci]"
+            git push
           fi
+
