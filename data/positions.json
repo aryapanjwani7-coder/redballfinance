@@ -1,0 +1,20 @@
+[
+  {
+    "symbol": "COALINDIA.NS",
+    "buy_date": "2025-08-26",
+    "buy_price_local": 372.45,
+    "buy_price_usd": 4.249823,
+    "qty": 117651.966707,
+    "cost_local": 43819475.0,
+    "cost_usd": 500000.0
+  },
+  {
+    "symbol": "KIRLOSBROS.NS",
+    "buy_date": "2025-08-14",
+    "buy_price_local": 1887.4,
+    "buy_price_usd": 21.523107,
+    "qty": 23230.846667,
+    "cost_local": 43845900.0,
+    "cost_usd": 500000.0
+  }
+]
