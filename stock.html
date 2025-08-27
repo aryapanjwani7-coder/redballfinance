@@ -6,23 +6,19 @@
   <title id="titleTag">Stock Report</title>
   <meta name="description" content="Detailed write-up for a position in my paper portfolio." />
   <link rel="stylesheet" href="styles.css" />
-
-  <!-- Marked.js for Markdown rendering -->
-  <script src="https://unpkg.com/marked/marked.min.js" defer></script>
-
-  <!-- Chart libs FIRST (order matters) -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4" defer></script>
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3" defer></script>
-
-  <!-- Your stock page logic (relies on libs above) -->
-  <script src="scripts/stock.js" defer></script>
+  <script src="https://unpkg.com/marked/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3"></script>
 </head>
 <body>
   <header class="site-header">
     <div class="container header-inner">
-      <a href="index.html"><img src="assets/logo.svg" alt="Logo" class="logo" /></a>
+      <a href="index.html" class="logo-wrap">
+        <img src="assets/logo.png" alt="Red Ball Finance" class="logo" />
+      </a>
       <nav class="nav">
         <a href="index.html">Portfolio</a>
+        <a href="about.html">About</a>
       </nav>
     </div>
   </header>
@@ -65,8 +61,13 @@
   <footer class="site-footer">
     <div class="container footer-inner">
       <span>© <span id="year"></span> Red Ball Finance</span>
-      <a href="index.html">Back to portfolio</a>
+      <div>
+        <a href="about.html">About</a> ·
+        <a href="https://github.com" rel="noopener">Source</a>
+      </div>
     </div>
   </footer>
+
+  <script src="scripts/stock.js" defer></script>
 </body>
 </html>
