@@ -143,7 +143,8 @@ def main():
 
     if not all_dates:
         die("no quote data fetched (sharing/publish or mapping issue)")
-    all_dates = pd.Series(sorted(list(all_dates)), dtype="string")
+    # Use date strings as the canonical index for alignment
+    all_dates = pd.Index(sorted(list(all_dates)), dtype="object", name="date")
 
     # FX: USDINR for INR->USD
     fx = pd.Series(dtype=float); have_fx=False
@@ -197,7 +198,7 @@ def main():
             return float(price_local)/float(fxv)
         return float(price_local)
 
-    # Holdings & invested (by date)
+    # Holdings & invested (by date index = all_dates)
     holdings={sym: pd.Series(0.0, index=all_dates) for sym in symbols}
     invested_usd=pd.Series(0.0, index=all_dates)
     for sym in symbols:
@@ -239,23 +240,24 @@ def main():
         pnl_abs = (nav_usd - base_val).round(2)
         pnl_pct = ((nav_usd / base_val - 1.0) * 100.0).round(3)
 
-    # Write outputs
-    nav_df=pd.DataFrame({
-        "date":all_dates,
-        "nav_usd":nav_usd,
-        "cash_usd":cash_usd.round(4),
-        "holdings_usd":values_usd.round(4),
-        "invested_usd":invested_usd.round(4),
-        "nav_index":nav_index,
-        "pnl_abs_usd":pnl_abs,
-        "pnl_pct":pnl_pct
-    })
+    # ---- WRITE OUTPUTS (ALIGN BY INDEX, THEN RESET) ----
+    nav_df = pd.DataFrame({
+        "nav_usd":      nav_usd,
+        "cash_usd":     cash_usd.round(4),
+        "holdings_usd": values_usd.round(4),
+        "invested_usd": invested_usd.round(4),
+        "nav_index":    nav_index,
+        "pnl_abs_usd":  pnl_abs,
+        "pnl_pct":      pnl_pct
+    }, index=all_dates)  # align by the same date index
+    nav_df = nav_df.reset_index(names="date")  # turn index back into 'date' column
+
     (DATA/"nav.json").write_text(nav_df.to_json(orient="records", force_ascii=False), encoding="utf-8")
 
     summary={"base_currency":"USD","starting_cash":STARTING_CASH,
              "inception_date": inception if inception else None,
              "latest":{
-                 "date": all_dates.iloc[-1],
+                 "date": str(all_dates[-1]),
                  "nav": float(nav_usd.iloc[-1]),
                  "cash": float(cash_usd.iloc[-1]),
                  "holdings": float(values_usd.iloc[-1]),
