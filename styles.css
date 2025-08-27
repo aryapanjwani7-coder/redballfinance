@@ -43,7 +43,7 @@ body{
 .header-inner{display:flex;align-items:center;justify-content:space-between}
 .logo-wrap{display:block;line-height:0}
 /* Make the logo ~15% of the container width, without changing header height */
-.logo{width:15%;min-width:120px;max-width:220px;height:auto;display:block}
+.logo{width:45%;min-width:120px;max-width:220px;height:auto;display:block}
 .nav a{margin-left:16px;text-decoration:none;color:var(--muted)}
 .nav a.active{color:var(--text)}
 .nav a:hover{color:var(--link-hover)}
