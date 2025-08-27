@@ -1,12 +1,12 @@
 /* --- Theme tokens --- */
 :root{
-  --bg-1:#0b1220;   /* deep navy */
-  --bg-2:#0f1b2f;   /* slightly lighter navy */
+  --bg-1:#0b1220;
+  --bg-2:#0f1b2f;
   --card:#121a2a;
   --border:#1f2a44;
   --text:#e9eef7;
   --muted:#9fb1d1;
-  --link:#8ad0ff;   /* link color */
+  --link:#8ad0ff;
   --link-hover:#b6e3ff;
   --accent:#62c1ff;
   --green:#00d09c;
@@ -14,7 +14,6 @@
   --shadow:0 10px 30px rgba(0,0,0,.35);
 }
 
-/* Smooth site-wide gradient (fixes the sharp background cut) */
 html,body{height:100%}
 body{
   margin:0;
@@ -27,15 +26,10 @@ body{
   font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Apple Color Emoji","Segoe UI Emoji";
 }
 
-/* Containers & cards */
 .container{max-width:1120px;margin:0 auto;padding:24px}
-.card{
-  background:var(--card);
-  border:1px solid var(--border);
-  border-radius:18px;
-  padding:22px 22px;
-  box-shadow:var(--shadow);
-}
+
+/* Add breathing room between stacked cards */
+.card{margin:0 0 22px 0;background:var(--card);border:1px solid var(--border);border-radius:18px;padding:22px 22px;box-shadow:var(--shadow)}
 .card.soft{padding:16px 18px}
 .section-head{display:flex;align-items:center;justify-content:space-between;gap:16px}
 
@@ -47,24 +41,32 @@ body{
   border-bottom:1px solid var(--border);
 }
 .header-inner{display:flex;align-items:center;justify-content:space-between}
-.logo{height:38px;width:auto;display:block}
+.logo-wrap{display:block;line-height:0}
+/* Make the logo ~15% of the container width, without changing header height */
+.logo{width:15%;min-width:120px;max-width:220px;height:auto;display:block}
 .nav a{margin-left:16px;text-decoration:none;color:var(--muted)}
 .nav a.active{color:var(--text)}
 .nav a:hover{color:var(--link-hover)}
 
-/* Hero */
+/* Hero — two-column on desktop, stacked on mobile */
 .hero{padding:48px 0}
-.hero h1{font-size:52px;line-height:1.05;margin:0 0 10px}
-.hero-sub{color:var(--muted);max-width:680px}
-.hero-cta{display:flex;gap:12px;margin-top:18px}
+.hero-grid{display:grid;grid-template-columns:1.2fr 1fr;align-items:center;gap:32px}
+.hero h1{font-size:73px; /* ~40% bigger than 52px */ line-height:1.05;margin:0 0 8px}
+.hero-sub{color:var(--muted);margin:0 0 14px}
+.hero-cta{display:flex;gap:12px;margin-top:12px}
 .btn{border-radius:12px;padding:10px 14px;border:1px solid var(--border);text-decoration:none}
 .btn.primary{background:linear-gradient(90deg,#58e1c1,#62c1ff);color:#051321;border:none}
 .btn.ghost{color:var(--link);background:transparent}
 
+@media (max-width: 880px){
+  .hero-grid{grid-template-columns:1fr}
+  .logo{width:28%;max-width:220px}
+}
+
 /* Table */
 .table-wrap{overflow:auto}
 table{width:100%;border-collapse:collapse}
-th,td{padding:10px 8px;border-bottom:1px solid var(--border);text-align:left}
+th,td{padding:10px 8px;border-bottom:1px solid var(--border);text-align:left;vertical-align:top}
 thead th{color:var(--muted);font-weight:600}
 
 /* Grid cards */
@@ -72,10 +74,10 @@ thead th{color:var(--muted);font-weight:600}
 .card-link{text-decoration:none;color:inherit;display:block}
 .card-link:hover{outline:1px solid var(--border)}
 
-/* Links — remove purple visited state */
+/* Links — keep visited color same (no purple) */
 a{color:var(--link)}
 a:hover{color:var(--link-hover)}
-a:visited{color:var(--link)} /* <— fix the purple visited color */
+a:visited{color:var(--link)}
 
 /* Misc */
 .meta{color:var(--muted);font-size:14px}
@@ -88,3 +90,9 @@ a:visited{color:var(--link)} /* <— fix the purple visited color */
 /* Stock page */
 .stock-header{display:flex;align-items:center;justify-content:space-between}
 .prose p{line-height:1.6}
+
+/* Footer */
+.site-footer{border-top:1px solid var(--border);margin-top:10px}
+.footer-inner{display:flex;align-items:center;justify-content:space-between}
+.footer-inner a{color:var(--muted)}
+.footer-inner a:hover{color:var(--link-hover)}
