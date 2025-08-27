@@ -24,9 +24,9 @@ DATA = ROOT / "data"
 QUOTES = DATA / "quotes"
 QUOTES.mkdir(parents=True, exist_ok=True)
 
-stocks_json = DATA / "stocks.json"
-tx_json = DATA / "transactions.json"
-tab_gids_path = DATA / "tab_gids.json"  # optional file fallback
+stocks_json = DATA / "stocks.json"        # optional (names/tags/slug)
+tx_json = DATA / "transactions.json"      # required
+tab_gids_path = DATA / "tab_gids.json"    # optional file fallback for gid mapping
 
 def die(msg, code=1):
     print(f"ERROR: {msg}", file=sys.stderr)
@@ -86,88 +86,33 @@ def local_cur(symbol: str) -> str:
         return "INR"
     return "USD"
 
-def load_stocks():
-    if not stocks_json.exists():
-        # optional file; treat missing as empty list
-        print("[info] data/stocks.json not found (optional)")
-        return []
-    try:
-        stocks = json.loads(stocks_json.read_text(encoding="utf-8"))
-    except Exception as e:
-        die(f"failed to parse data/stocks.json: {e}")
-    if not isinstance(stocks, list):
-        die("data/stocks.json must be a JSON array if present")
-    return stocks
-
-def load_transactions(symbols):
+def load_transactions():
     if not tx_json.exists():
         die("data/transactions.json not found — create it with your buys.")
     try:
         tx = pd.read_json(tx_json)
     except Exception as e:
         die(f"failed to parse data/transactions.json: {e}")
-    # Normalize columns
-    for col in ["symbol","date"]:
+    for col in ["symbol","date","price_local"]:
         if col not in tx.columns:
             die(f"transactions.json missing required field '{col}'")
     tx["symbol"] = tx["symbol"].astype(str)
-    tx["date"] = pd.to_datetime(tx["date"]).dt.date.astype("string")
-    # Numeric fields
-    for col in ["qty","price","price_local","amount_usd"]:
+    tx["date"]   = pd.to_datetime(tx["date"]).dt.date.astype("string")
+    for col in ["qty","price_local","amount_usd"]:
         if col in tx.columns:
             tx[col] = pd.to_numeric(tx[col], errors="coerce")
-    # Use price_local if present else price
-    if "price_local" in tx.columns:
-        tx["price_local"] = tx["price_local"]
-    else:
-        if "price" in tx.columns:
-            tx["price_local"] = tx["price"]
-        else:
-            die("transactions.json must include 'price_local' (or legacy 'price')")
-    # Keep only symbols we know
-    tx = tx[tx["symbol"].isin(symbols)]
-    if tx.empty:
-        die("transactions.json has no rows for the symbols in data/stocks.json")
-    return tx
+    return tx.sort_values("date")
 
 def main():
     print(f"[info] BASE={BASE_CURRENCY}  STARTING_CASH={STARTING_CASH:,.2f}  YEARS_BACK={YEARS_BACK}")
     gids = load_tab_gids()
     if gids: print(f"[info] using gid mapping for {len(gids)} tabs")
 
-    stocks = load_stocks()
-    # Try to discover symbols from stocks.json; else infer from transactions later
-    symbols_from_stocks = [(s.get("symbol") or s.get("ticker") or "").strip()
-                           for s in stocks if (s.get("symbol") or s.get("ticker"))]
+    tx = load_transactions()
+    symbols = sorted(tx["symbol"].unique())
 
-    # Fetch price series for every symbol we know now
+    # Fetch prices per symbol
     price_map={}; all_dates=set()
-
-    # If we don't know all symbols yet, we will extend after reading transactions
-    pre_symbols = set([s for s in symbols_from_stocks if s])
-
-    # Always include USDINR fetch possibility
-    fx = pd.Series(dtype=float); have_fx=False
-    fx_df=None
-    fx_gid = gids.get("USDINR")
-    if fx_gid:
-        try:
-            fx_df = fetch_gid_csv(SHEET_ID, fx_gid)
-        except Exception as e:
-            print(f"[warn] gid USDINR failed: {e}")
-    if fx_df is None:
-        try:
-            fx_df = fetch_tab_csv(SHEET_ID, "USDINR")
-        except Exception as e:
-            print(f"[warn] USDINR tab fetch failed: {e}")
-    if fx_df is not None and len(fx_df):
-        fx = fx_df.set_index("date")["close"]
-        have_fx=True
-        print(f"[ok] USDINR rows={len(fx_df)}")
-    else:
-        print("[warn] No USDINR FX; INR positions will be treated as USD (mis-scaled)")
-
-    # Helper to fetch a symbol's price series
     def fetch_prices_for_symbol(sym: str) -> pd.DataFrame:
         df=None
         gid = gids.get(sym)
@@ -187,28 +132,35 @@ def main():
         print(f"[ok] wrote data/quotes/{sym}.json rows={len(df)}")
         return df
 
-    # Initially fetch for any symbols listed in stocks.json
-    for sym in pre_symbols:
+    for sym in symbols:
         df = fetch_prices_for_symbol(sym)
         price_map[sym]=df
         all_dates |= set(df["date"].unique())
 
-    # Load transactions and extend symbol set accordingly
-    tx_raw = load_transactions(symbols=list(pre_symbols) if pre_symbols else None)
-    # If stocks.json was empty, infer symbols from transactions
-    if not pre_symbols:
-        pre_symbols = set(tx_raw["symbol"].unique())
-        for sym in pre_symbols:
-            df = fetch_prices_for_symbol(sym)
-            price_map[sym]=df
-            all_dates |= set(df["date"].unique())
+    # FX series USDINR (for INR -> USD)
+    fx_df = None
+    if "USDINR" in gids:
+        try:
+            fx_df = fetch_gid_csv(SHEET_ID, gids["USDINR"])
+        except Exception as e:
+            print(f"[warn] gid USDINR failed: {e}")
+    if fx_df is None:
+        try:
+            fx_df = fetch_tab_csv(SHEET_ID, "USDINR")
+        except Exception as e:
+            print(f"[warn] USDINR tab fetch failed: {e}")
+    have_fx = fx_df is not None and len(fx_df)>0
+    if have_fx:
+        fx = fx_df.set_index("date")["close"]
+        print(f"[ok] USDINR rows={len(fx_df)}")
+    else:
+        fx = pd.Series(dtype=float)
+        print("[warn] No USDINR FX; INR positions will be treated as USD (mis-scaled)")
 
-    # Canonical date index for alignment
     if not all_dates:
         die("no quote data fetched (check Sheet mapping/permissions)")
     all_dates = pd.Index(sorted(list(all_dates)), dtype="object", name="date")
 
-    # Conversion helpers
     def price_usd_on_date(symbol: str, price_local: float, on_date: str) -> float:
         cur = local_cur(symbol)
         if cur == "USD":
@@ -218,26 +170,23 @@ def main():
             return float(price_local) / float(fxv)
         return float(price_local)
 
-    # Compute qty from amount_usd if provided
-    tx = tx_raw.copy()
+    # Compute qty for amount_usd entries
     if "amount_usd" in tx.columns:
         need_qty = tx["qty"].isna() if "qty" in tx.columns else pd.Series(True, index=tx.index)
         for idx in tx[need_qty].index:
-            sym = tx.at[idx, "symbol"]
-            d   = tx.at[idx, "date"]
+            sym = tx.at[idx, "symbol"]; d = tx.at[idx, "date"]
             pl  = float(tx.at[idx, "price_local"])
             pu  = price_usd_on_date(sym, pl, d)
             if pu and np.isfinite(pu) and pu > 0:
                 tx.at[idx, "qty"] = float(tx.at[idx, "amount_usd"]) / pu
             else:
                 die(f"Cannot convert amount_usd to qty for {sym} on {d} (missing FX or price).")
-    # Final safety
     tx["qty"] = pd.to_numeric(tx["qty"], errors="coerce").fillna(0.0)
 
-    # Build holdings by date
-    holdings={sym: pd.Series(0.0, index=all_dates) for sym in pre_symbols}
+    # Build holdings & invested (aligned by the same date index)
+    holdings={sym: pd.Series(0.0, index=all_dates) for sym in symbols}
     invested_usd=pd.Series(0.0, index=all_dates)
-    for sym in pre_symbols:
+    for sym in symbols:
         h=pd.Series(0.0, index=all_dates)
         sym_tx = tx[tx["symbol"]==sym]
         for _,row in sym_tx.iterrows():
@@ -249,23 +198,22 @@ def main():
             invested_usd.loc[invested_usd.index>=d] += q * pu
         holdings[sym]=h
 
-    # Daily mark-to-market (USD) — avoid NaNs at source
+    # Daily mark-to-market (USD)
     values_usd=pd.Series(0.0, index=all_dates, dtype=float)
-    for sym in pre_symbols:
+    for sym in symbols:
         s = price_map[sym].set_index("date")["close"].reindex(all_dates).ffill().fillna(0.0)
-        # price already local; convert to USD series
         if local_cur(sym)=="INR" and have_fx:
             s = s / fx.reindex(all_dates).ffill().fillna(method="ffill")
         values_usd += s * holdings[sym]
 
-    # Cash & NAV (fill any gaps)
+    # Cash & NAV
     invested_usd = invested_usd.fillna(0.0)
     cash_usd = (STARTING_CASH - invested_usd).clip(lower=0.0)
     cash_usd = cash_usd.fillna(method='ffill').fillna(STARTING_CASH)
     nav_usd  = (values_usd + cash_usd).round(4)
     nav_usd  = nav_usd.fillna(cash_usd)
 
-    # Inception = first date with positive invested cash, else first positive NAV
+    # Inception
     invested_positive = invested_usd[invested_usd > 0]
     if len(invested_positive):
         inception = invested_positive.index.min()
@@ -283,7 +231,7 @@ def main():
         pnl_abs = (nav_usd - base_val).round(2)
         pnl_pct = ((nav_usd / base_val - 1.0) * 100.0).round(3)
 
-    # ---- WRITE OUTPUTS ----
+    # Write nav files
     nav_df = pd.DataFrame({
         "nav_usd":      nav_usd,
         "cash_usd":     cash_usd.round(4),
@@ -308,15 +256,24 @@ def main():
              }}
     (DATA/"nav_summary.json").write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
 
-    # Derived positions for the stock page snapshot
+    # Derived positions (for stock pages + portfolio table)
     pos_rows = []
-    for sym in sorted(pre_symbols):
+    for sym in sorted(symbols):
         sym_tx = tx[tx["symbol"]==sym].sort_values("date")
         if sym_tx.empty: continue
         first = sym_tx.iloc[0]
         buy_date = first["date"]
         buy_price_local = float(first["price_local"])
-        buy_price_usd = price_usd_on_date(sym, buy_price_local, buy_date)
+        # Compute USD buy price on that date
+        def price_usd(symbol, price_local, on_date):
+            cur = local_cur(symbol)
+            if cur == "USD":
+                return float(price_local)
+            if cur == "INR" and ("USDINR" in price_map or True):
+                # reuse price_usd_on_date for consistency
+                return price_usd_on_date(symbol, price_local, on_date)
+            return float(price_local)
+        buy_price_usd = price_usd(sym, buy_price_local, buy_date)
         total_qty = float(sym_tx["qty"].sum())
         cost_local = total_qty * buy_price_local
         cost_usd   = total_qty * buy_price_usd
