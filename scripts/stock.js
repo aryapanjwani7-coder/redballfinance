@@ -14,60 +14,83 @@
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '');
 
+  const normalizeLoose = (s) =>
+    String(s || '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, ''); // remove hyphens/spaces for lenient comparisons
+
   const jfetch = async (path) => {
     const res = await fetch(`${path}?v=${Date.now()}`, { cache: 'no-store' });
     if (!res.ok) throw new Error(`${path} -> ${res.status}`);
-    // positions.json and stocks.json are JSON; reports are handled elsewhere
     return res.json();
   };
 
   const now = new Date();
   $('#year') && ($('#year').textContent = now.getFullYear());
 
-  // Choose symbol + meta:
-  // 1) Prefer positions.json (authoritative for buys)
-  // 2) Use stocks.json (names/tags/report slugs)
+  /**
+   * Resolve the page target:
+   * 1) Prefer positions.json (authoritative for buys)
+   * 2) Use stocks.json for name/tags/slug/report mapping
+   * 3) Be lenient about slug matching (ignore hyphens/spaces)
+   */
   async function resolveTarget() {
-    const positions = await jfetch('data/positions.json').catch(() => []);
-    const stocks    = await jfetch('data/stocks.json').catch(() => []);
+    const [positions, stocks] = await Promise.all([
+      jfetch('data/positions.json').catch(() => []),
+      jfetch('data/stocks.json').catch(() => [])
+    ]);
 
-    // Build lookup by symbol
     const posBySymbol = Object.fromEntries(positions.map(p => [p.symbol, p]));
 
-    // If symbol provided, try direct hit
-    if (urlSymbol && posBySymbol[urlSymbol]) {
-      const pos = posBySymbol[urlSymbol];
+    // a) If ?symbol is present, try direct symbol first
+    if (urlSymbol) {
+      const pos = posBySymbol[urlSymbol] || null;
       const st  = stocks.find(s => (s.symbol || s.ticker) === urlSymbol) || {};
-      return { symbol: urlSymbol, pos, stockMeta: st, slug: st.slug || toSlug(st.name || urlSymbol.split('.')[0]) };
+      const slug = st.slug || toSlug(st.name || urlSymbol.split('.')[0]);
+      return { symbol: urlSymbol, pos, stockMeta: st, slug };
     }
 
-    // If slug provided, try match via positions first, then stocks
+    // b) If ?slug is present, try to match leniently:
     if (urlSlug) {
-      const wanted = toSlug(urlSlug);
-      // Try to derive slug candidates from positions (symbol base)
+      const wantLoose = normalizeLoose(urlSlug);
+
+      // b1) Try positions first: compare against the symbol base (e.g. COALINDIA) loosely
       for (const p of positions) {
         const base = (p.symbol || '').split('.')[0];
-        if (toSlug(base) === wanted) {
+        if (normalizeLoose(base) === wantLoose) {
           const st = stocks.find(s => (s.symbol || s.ticker) === p.symbol) || {};
-          return { symbol: p.symbol, pos: p, stockMeta: st, slug: st.slug || wanted };
+          const slug = st.slug || toSlug(st.name || base);
+          return { symbol: p.symbol, pos: p, stockMeta: st, slug };
         }
       }
-      // Fall back to stocks.json slug/name/symbol
-      for (const s of stocks) {
-        const sSym  = s.symbol || s.ticker || '';
-        const base  = sSym.split('.')[0];
-        const cands = [s.slug, s.name, sSym, base].filter(Boolean).map(toSlug);
-        if (cands.includes(wanted)) {
-          const pos = posBySymbol[sSym];
-          return { symbol: sSym, pos, stockMeta: s, slug: wanted };
-        }
-      }
-    }
 
-    // Last resort: symbol parameter without positions
-    if (urlSymbol) {
-      const st = stocks.find(s => (s.symbol || s.ticker) === urlSymbol);
-      if (st) return { symbol: urlSymbol, pos: null, stockMeta: st, slug: st.slug || toSlug(st.name || urlSymbol.split('.')[0]) };
+      // b2) Try stocks: compare wantLoose with slug/name/symbol-base loosely
+      for (const s of stocks) {
+        const sSym = s.symbol || s.ticker || '';
+        const base = sSym.split('.')[0];
+        const candidates = [
+          s.slug,
+          s.name,
+          sSym,
+          base
+        ].filter(Boolean);
+
+        if (candidates.some(c => normalizeLoose(c) === wantLoose)) {
+          const pos = posBySymbol[sSym] || null;
+          const slug = s.slug || toSlug(s.name || base);
+          return { symbol: sSym, pos, stockMeta: s, slug };
+        }
+      }
+
+      // b3) As a final fallback, try to infer exchange suffix (.NS/.BO) by scanning positions symbols loosely
+      for (const p of positions) {
+        const base = (p.symbol || '').split('.')[0];
+        if (normalizeLoose(base) === wantLoose) {
+          const st = stocks.find(s => (s.symbol || s.ticker) === p.symbol) || {};
+          const slug = st.slug || toSlug(st.name || base);
+          return { symbol: p.symbol, pos: p, stockMeta: st, slug };
+        }
+      }
     }
 
     return null;
@@ -160,6 +183,12 @@
         }
       }
     });
+
+    // Friendly inline hint if position wasn't found for this symbol
+    if (!Number.isFinite(buyPrice) || !buyDate) {
+      const note = $('#priceNote');
+      if (note) note.textContent = 'Position details not found in positions.json; showing price chart only.';
+    }
   }
 
   async function main() {
@@ -175,7 +204,7 @@
 
       const { symbol, pos, stockMeta, slug } = chosen;
 
-      // Header meta from positions if available (authoritative)
+      // Header meta
       $('#ticker') && ($('#ticker').textContent = symbol);
 
       if (pos) {
@@ -188,14 +217,14 @@
         $('#priceNote') && ($('#priceNote').textContent =
           pos.buy_date ? `Red dotted line marks buy at ${pos.buy_price_local} on ${pos.buy_date}.` : '');
       } else {
-        // fallback only if positions missing
+        // Fallback to stocks.json if no position found
         const qty = stockMeta?.qty, bp = stockMeta?.buy_price, bd = stockMeta?.buy_date;
         $('#buyDate')  && ($('#buyDate').textContent  = bd || '');
         $('#qty')      && ($('#qty').textContent      = (qty ?? '').toString());
         $('#buyPrice') && ($('#buyPrice').textContent = (bp ?? '').toString());
         if (qty && bp) $('#cost') && ($('#cost').textContent = (qty * bp).toLocaleString());
         $('#priceNote') && ($('#priceNote').textContent =
-          bd ? `Red dotted line marks buy at ${bp} on ${bd}.` : '');
+          bd ? `Red dotted line marks buy at ${bp} on ${bd}.` : 'Position not found in positions.json.');
       }
 
       await renderReport(symbol, slug, stockMeta);
