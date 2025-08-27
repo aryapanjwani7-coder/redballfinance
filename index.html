@@ -24,18 +24,26 @@
 
   <main class="container">
     <section class="hero">
-      <h1>
-        See stocks I'm<br />
-        investing in...<br />
-        and why.
-      </h1>
-      <p class="hero-sub">
-        I track my top picks, share performance, and publish the exact rationale behind each buy. 
-        100% transparent. Paper portfolio. Real thinking.
-      </p>
-      <div class="hero-cta">
-        <a class="btn primary" href="#portfolio">View portfolio</a>
-        <a class="btn ghost" href="#recent">Recent picks</a>
+      <div class="hero-grid">
+        <!-- Left: headline with exact line breaks -->
+        <div>
+          <h1>
+            See stocks I'm<br/>
+            investing in and<br/>
+            why.
+          </h1>
+        </div>
+
+        <!-- Right: tagline + buttons -->
+        <div>
+          <p class="hero-sub">
+            I track my top picks, share real-time charts, and explain my rationale.
+          </p>
+          <div class="hero-cta">
+            <a class="btn primary" href="#portfolio">View portfolio</a>
+            <a class="btn ghost" href="#recent">Recent picks</a>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -87,7 +95,10 @@
   <footer class="site-footer">
     <div class="container footer-inner">
       <span>© <span id="year"></span> Red Ball Finance</span>
-      <a href="https://github.com" rel="noopener">Source</a>
+      <div>
+        <a href="about.html">About</a> ·
+        <a href="https://github.com" rel="noopener">Source</a>
+      </div>
     </div>
   </footer>
 
