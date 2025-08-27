@@ -2,12 +2,10 @@
 (function () {
   const $ = sel => document.querySelector(sel);
 
-  // ---- URL params ----
   const params = new URLSearchParams(location.search);
   const urlSymbol = params.get('symbol');   // e.g. COALINDIA.NS
   const urlSlug   = params.get('slug');     // e.g. coal-india
 
-  // ---- helpers ----
   const toSlug = (s) =>
     String(s || '')
       .toLowerCase()
@@ -15,7 +13,7 @@
       .replace(/^-+|-+$/g, '');
 
   const jfetch = async (path) => {
-    const res = await fetch(path, { cache: 'no-store' });
+    const res = await fetch(`${path}?v=${Date.now()}`, { cache: 'no-store' });
     if (!res.ok) throw new Error(`${path} -> ${res.status}`);
     return res.json();
   };
@@ -23,28 +21,20 @@
   const now = new Date();
   $('#year') && ($('#year').textContent = now.getFullYear());
 
-  function pickMetaBySlugOrSymbol(stocks, slug, symbol) {
+  function chooseStock(stocks, slug, symbol) {
+    // direct symbol match
     if (symbol) {
       const bySym = stocks.find(s => (s.symbol || s.ticker) === symbol);
       if (bySym) return { meta: bySym, symbol: bySym.symbol || bySym.ticker, slugGuess: slug || null };
     }
     if (!slug) return null;
-
+    // slug candidates
     for (const s of stocks) {
       const sym = s.symbol || s.ticker || '';
-      const parts = String(sym).split('.');
-      const symNoEx = parts[0];
-      const candidates = [
-        s.slug,
-        s.name,
-        s.ticker,
-        s.symbol,
-        symNoEx
-      ].filter(Boolean).map(toSlug);
-
-      const want = toSlug(slug);
-      if (candidates.includes(want)) {
-        return { meta: s, symbol: sym, slugGuess: want };
+      const base = sym.split('.')[0];
+      const candidates = [s.slug, s.name, s.ticker, s.symbol, base].filter(Boolean).map(toSlug);
+      if (candidates.includes(toSlug(slug))) {
+        return { meta: s, symbol: sym, slugGuess: toSlug(slug) };
       }
     }
     return null;
@@ -54,10 +44,9 @@
     const tryPaths = [];
     if (symbol) tryPaths.push(`reports/${encodeURIComponent(symbol)}.md`);
     if (slugGuess) tryPaths.push(`reports/${encodeURIComponent(slugGuess)}.md`);
-
     for (const path of tryPaths) {
       try {
-        const resp = await fetch(path, { cache: 'no-store' });
+        const resp = await fetch(`${path}?v=${Date.now()}`, { cache: 'no-store' });
         if (!resp.ok) continue;
         const md = await resp.text();
         $('#report').innerHTML = marked.parse(md);
@@ -73,16 +62,16 @@
     $('#report') && ($('#report').textContent = 'Report not found.');
   }
 
-  async function drawPriceChart(symbol, meta) {
+  async function drawPriceChart(symbol, metaOrPos) {
     const canvas = $('#priceChart');
     if (!canvas) return;
 
     let quotes;
     try {
-      quotes = await (await fetch(`data/quotes/${encodeURIComponent(symbol)}.json`, { cache: 'no-store' })).json();
+      quotes = await jfetch(`data/quotes/${encodeURIComponent(symbol)}.json`);
     } catch (e) {
       console.error(e);
-      canvas.replaceWith(`Price fetch failed for ${symbol}. Check data/quotes/${symbol}.json`);
+      canvas.replaceWith(`Price fetch failed for ${symbol}.`);
       return;
     }
 
@@ -100,7 +89,7 @@
     const xMax = points[points.length - 1].x;
 
     const ys = points.map(p => p.y);
-    const buyPrice = Number(meta?.buy_price);
+    const buyPrice = Number(metaOrPos?.buy_price_local ?? metaOrPos?.buy_price);
     const yMin = Math.min(...ys, Number.isFinite(buyPrice) ? buyPrice : Infinity);
     const yMax = Math.max(...ys, Number.isFinite(buyPrice) ? buyPrice : -Infinity);
     const pad = (yMax - yMin) * 0.08 || Math.max(1, yMax * 0.08);
@@ -140,8 +129,12 @@
 
   async function main() {
     try {
-      const stocks = await jfetch('data/stocks.json');
-      const chosen = pickMetaBySlugOrSymbol(stocks, urlSlug, urlSymbol);
+      const [stocks, positions] = await Promise.all([
+        jfetch('data/stocks.json').catch(() => []),
+        jfetch('data/positions.json').catch(() => [])
+      ]);
+
+      const chosen = chooseStock(stocks, urlSlug, urlSymbol);
       if (!chosen) {
         const msg = urlSlug
           ? `Unknown slug "${urlSlug}".`
@@ -149,22 +142,36 @@
         $('#priceChart')?.replaceWith(msg);
         return;
       }
-
       const { meta, symbol, slugGuess } = chosen;
 
+      // Find position info (computed by backend)
+      const pos = positions.find(p => p.symbol === symbol);
+
+      // Header/meta blocks
       $('#ticker') && ($('#ticker').textContent = symbol);
-      $('#buyDate') && ($('#buyDate').textContent = meta.buy_date || '');
-      $('#qty') && ($('#qty').textContent = meta.qty ?? '');
-      $('#buyPrice') && ($('#buyPrice').textContent = meta.buy_price ?? '');
-      if (meta.qty && meta.buy_price) {
-        $('#cost') && ($('#cost').textContent = (meta.qty * meta.buy_price).toLocaleString());
+      if (pos) {
+        $('#buyDate') && ($('#buyDate').textContent = pos.buy_date || meta?.buy_date || '');
+        $('#qty') && ($('#qty').textContent = (pos.qty ?? '').toLocaleString());
+        $('#buyPrice') && ($('#buyPrice').textContent = pos.buy_price_local ?? meta?.buy_price ?? '');
+        if (Number.isFinite(pos.cost_local)) {
+          $('#cost') && ($('#cost').textContent = Number(pos.cost_local).toLocaleString());
+        } else if (meta?.qty && meta?.buy_price) {
+          $('#cost') && ($('#cost').textContent = (meta.qty * meta.buy_price).toLocaleString());
+        }
+        $('#priceNote') && ($('#priceNote').textContent =
+          pos.buy_date ? `Red dotted line marks buy at ${pos.buy_price_local} on ${pos.buy_date}.` : '');
+      } else {
+        // fallback to stocks.json
+        $('#buyDate') && ($('#buyDate').textContent = meta.buy_date || '');
+        $('#qty') && ($('#qty').textContent = meta.qty ?? '');
+        $('#buyPrice') && ($('#buyPrice').textContent = meta.buy_price ?? '');
+        if (meta?.qty && meta?.buy_price) {
+          $('#cost') && ($('#cost').textContent = (meta.qty * meta.buy_price).toLocaleString());
+        }
       }
-      $('#tags') && ($('#tags').textContent = Array.isArray(meta.tags) ? meta.tags.join(', ') : (meta.tags || '') );
-      $('#priceNote') && ($('#priceNote').textContent =
-        meta.buy_date ? `Red dotted line marks buy at ${meta.buy_price} on ${meta.buy_date}.` : '');
 
       await renderReport(meta, symbol, slugGuess);
-      await drawPriceChart(symbol, meta);
+      await drawPriceChart(symbol, pos || meta);
     } catch (e) {
       console.error('stock page error:', e);
       $('#priceChart')?.replaceWith('Stock page error — open console for details.');
