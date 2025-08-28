@@ -129,3 +129,49 @@ a:visited{color:var(--link)}
   padding: 14px 16px;
   overflow: auto;
 }
+
+
+/* Markdown styling */
+.prose h1, .prose h2, .prose h3 {
+  margin-top: 1.4em;
+  margin-bottom: 0.6em;
+  font-weight: 600;
+}
+.prose h1 { font-size: 1.9em; }
+.prose h2 { font-size: 1.5em; border-bottom: 1px solid var(--border); padding-bottom: 0.2em; }
+.prose h3 { font-size: 1.2em; }
+
+.prose p, .prose li {
+  line-height: 1.6;
+}
+
+.prose blockquote {
+  border-left: 4px solid var(--accent);
+  padding-left: 14px;
+  color: var(--muted);
+  font-style: italic;
+  margin: 12px 0;
+}
+
+/* Collapsibles */
+.prose details {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin: 14px 0;
+  background: rgba(255,255,255,0.02);
+}
+.prose summary {
+  cursor: pointer;
+  font-weight: 600;
+  list-style: none;
+}
+.prose summary::-webkit-details-marker { display:none; }
+.prose details summary::after {
+  content: "+";
+  float: right;
+  color: var(--muted);
+}
+.prose details[open] summary::after {
+  content: "–";
+}
