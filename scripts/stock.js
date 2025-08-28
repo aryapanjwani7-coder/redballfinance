@@ -76,33 +76,39 @@
       tried.push(`${path} → ${resp.status}`);
       if (!resp.ok) continue;
 
-      const md = await resp.text();
+      const src = await resp.text();
       const rep = document.getElementById('report');
       if (!rep) return;
 
+      // Prefer markdown-it (handles <details>, HTML) → then Marked → fallback <pre>
       let html = '';
-      // Try Marked first (if present)
       try {
-        if (window.marked && typeof marked.parse === 'function') {
-          html = marked.parse(md);
+        if (window.markdownit) {
+          const md = window.markdownit({ html: true, linkify: true, breaks: true });
+          html = md.render(src);
+        } else if (window.marked && typeof marked.parse === 'function') {
+          // Allow GFM + breaks; let raw HTML pass through
+          if (marked.setOptions) {
+            marked.setOptions({ gfm: true, breaks: true, headerIds: true, mangle: false });
+          }
+          html = marked.parse(src);
         }
       } catch (e) {
-        console.error('[report] marked.parse error:', e);
+        console.error('[report] markdown render error:', e);
       }
 
-      if (!html) {
-        // Fallback: show raw markdown safely so content is visible
+      if (html) {
+        rep.innerHTML = html;
+      } else {
         const pre = document.createElement('pre');
         pre.style.whiteSpace = 'pre-wrap';
         pre.style.lineHeight = '1.5';
-        pre.textContent = md;
+        pre.textContent = src;
         rep.replaceChildren(pre);
-      } else {
-        rep.innerHTML = html;
       }
 
-      // Title from first H1 if present; else fallback to name/symbol
-      let title = (md.match(/^#\s+(.+)/m) || [,''])[1]?.trim();
+      // Title from first H1
+      let title = (src.match(/^#\s+(.+)/m) || [,''])[1]?.trim();
       if (!title) title = stockMeta?.name || symbol || slug || 'Stock Report';
       const nameEl = document.getElementById('stockName');
       if (nameEl) nameEl.textContent = title;
@@ -116,11 +122,7 @@
     }
   }
 
-  // If none worked, show the tried list
-  const title = stockMeta?.name || symbol || slug || 'Stock Report';
-  const nameEl = document.getElementById('stockName');
-  if (nameEl) nameEl.textContent = title;
-
+  // If none worked, show tried paths
   const rep = document.getElementById('report');
   rep.innerHTML = `
     <p><strong>Report not found.</strong></p>
@@ -130,7 +132,6 @@
     </ul>
   `;
 }
-
 
 
   async function drawPriceChart(symbol, buyPriceLocal, buyDate) {
