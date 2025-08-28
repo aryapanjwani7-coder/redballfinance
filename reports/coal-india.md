@@ -1,95 +1,100 @@
 # Coal India Ltd — Investment Report
 
-> **TL;DR**
->
-> - **Dominant moat:** ~**74%** of India’s coal output; state backing; capital-intensive + regulated industry keeps new entrants out.  
-> - **Buyer power:** utilities have leverage; **e-auction premiums** fell **72% → 48%** in FY25, but long-term FSAs (~629 MTPA) anchor volumes.  
-> - **Substitution risk rising** (policy target to cut coal’s share of power from **72% → 55%** by 2030), yet coal remains India’s baseload for the next decade+.  
-> - **Compelling value:** around **7× P/E**, **ROE ~35–39%**, **ROCE ~48%**, **dividend ~6–7%**.  
-> - **Cash machine:** OCF ₹**29,000 cr** (FY23) → **₹18,100 cr** (FY24) → **₹29,200 cr** (FY25). FY25 PAT **₹35,302 cr** (-6% YoY) with margins **29% → 28%** on lower auction premia and higher depreciation/contract mining costs.  
-> - **Key drawbacks:** majority government ownership (incentives), limited high-growth runway, ESG/policy overhang.  
-> - **Thesis:** high-quality cash generator to **park capital** with downside protection and steady income; big upside less likely than steady, solid returns.
+> **TL;DR**  
+> Coal India is a state-backed behemoth with ~74% market share, cheap valuations (~7× P/E), high returns (ROE ~35–39%), and strong cash flows (FY25 PAT ₹35,302 cr).  
+> While renewables are rising and growth is capped, Coal India offers defensive, yield-heavy exposure with limited downside risk — a stable cash generator rather than a high-growth play.
 
 ---
 
-## Moat: Porter’s Five Forces (FY 2024–25)
+## Moat Analysis: Porter’s Five Forces (FY 2024–25)
 
 <details>
-  <summary><strong>1) Threat of New Entrants — Very Low</strong></summary>
+  <summary><strong>Threat of New Entrants — Very Low</strong></summary>
 
-- CIL produced **~74%** of India’s coal in FY25.  
-- Mining remains **capital-intensive**, tightly regulated, and reliant on **state-owned reserves (~389 Bt)**.  
-- Despite commercial mining auctions, scale & infra requirements keep barriers high.
+CIL produced 74% of India’s coal in FY25.  
+Mining remains capital-intensive, tightly regulated, and dependent on state-owned reserves (389 Bt).  
+Despite commercial mining auctions, scale and infrastructure needs keep barriers high.
 </details>
 
 <details>
-  <summary><strong>2) Bargaining Power of Suppliers — Very Low</strong></summary>
+  <summary><strong>Bargaining Power of Suppliers — Very Low</strong></summary>
 
-- Reserves owned by the **Government of India**; allocated to CIL.  
-- **310 mines**, in-house engineering (CMPDIL), and state backing reduce outside dependency.  
-- **Wage costs** are large (220k+ employees), but state-mandated—doesn’t translate to classical supplier power.
+Reserves are owned by the Government of India and allocated to CIL.  
+With 310 mines, in-house engineering arms (CMPDIL), and state backing, CIL has limited dependence on external suppliers.  
+Wage costs are significant (220,000+ employees), but as state-mandated, they don’t translate into classical supplier power.
 </details>
 
 <details>
-  <summary><strong>3) Bargaining Power of Buyers — Moderate to High</strong></summary>
+  <summary><strong>Bargaining Power of Buyers — Moderate to High</strong></summary>
 
-- **Power sector** dominates demand: **661 MT** in FY25; CIL supplied **616 MT** (~**93%** materialisation).  
-- Non-regulated sectors (steel, cement) sourced **145 MT**, with flexibility to **import**.  
-- **E-auction premiums** fell **72% → 48%** in FY25, signalling reduced scarcity power.  
-- FSAs (~**629 MTPA**) provide volume stability; large utilities (NTPC, state gencos) still wield negotiating leverage.
+Power sector dominates demand: 661 MT in FY25, of which CIL supplied 616 MT (93% materialisation).  
+Non-regulated sectors (steel, cement) sourced 145 MT, with flexibility to switch to imports.  
+E-auction premiums fell from 72% to 48% in FY25, reflecting reduced scarcity power.  
+Long-term Fuel Supply Agreements (~629 MTPA) give stability, but large buyers (NTPC, state utilities) hold negotiating leverage.
 </details>
 
 <details>
-  <summary><strong>4) Threat of Substitutes — Rising</strong></summary>
+  <summary><strong>Threat of Substitutes — Rising</strong></summary>
 
-- Coal fuels **~72%** of India’s power today; policy roadmap targets **~55%** by 2030.  
-- CIL is investing in **renewables** (installed **209 MW**, **9.5 GW** target by 2030).  
-- Gasification/coal-to-chemicals diversify, but **renewables growing faster** than coal demand.
+Coal still fuels 72% of India’s power generation, but policy aims to cut this to 55% by 2030.  
+CIL itself is investing in renewables (209 MW installed, 9.5 GW target by 2030).  
+Gasification and coal-to-chemicals projects are hedges, but renewables are growing faster than coal demand.
 </details>
 
 <details>
-  <summary><strong>5) Industry Rivalry — Low (Domestic), Moderate (Imports)</strong></summary>
+  <summary><strong>Industry Rivalry — Low (Domestic), Moderate (Imports)</strong></summary>
 
-- **Domestic:** CIL is unrivalled at ~**74%** share.  
-- **Imports:** India relies on imported coking coal; some coastal plants prefer imported high-grade thermal coal.  
-- Policy push for **import substitution** strengthens CIL but also introduces exposure to **global price swings**.
+Domestically, CIL is unrivalled with ~74% market share.  
+Imports provide indirect competition: India relies on imported coking coal (for steel) and high-grade thermal coal for some coastal plants.  
+Government push for import substitution strengthens CIL’s position but also exposes it to global price swings.
 </details>
 
 ---
 
-## Valuation & Profitability
+## Valuation and Profitability
 
-- Purchase context: **~7× P/E** — suggests limited downside if earnings stay resilient.  
-- **ROE ~35–39%**, **ROCE ~48%** → efficient asset use.  
-- **Dividend yield ~6–7%**, supported by strong cash generation.  
-- Cheap multiple reflects ESG/policy risk and the “sunset industry” overhang; still, returns on capital remain robust.
+At this time of purchase Coal India’s price-to-earnings (P/E) ratio is around 7, which means the downside risk is limited.  
+This low P/E reflects market concerns about the future of coal, including environmental regulations and a shift toward cleaner energy sources, which may reduce demand over time.  
+
+Despite this, Coal India shows very strong profitability, with a return on equity (ROE) of about 35–39% and a return on capital employed (ROCE) close to 48%, indicating efficient resource allocation.  
+Additionally, the high dividend yield of around 6–7% is attractive.
 
 ---
 
-## Cash Flow & P&L
+## Cash Flow and P&L
 
-- **Operating cash flow (OCF):**  
-  - **FY23:** ~**₹29,000 cr** — high e-auction premia + strong demand.  
-  - **FY24:** ~**₹18,100 cr** — softer realizations + working-capital drag (“weak year”).  
-  - **FY25:** ~**₹29,200 cr** — rebound confirms underlying cash power.  
-- **Profitability:**  
-  - **FY25 PAT:** **₹35,302 cr** (-6% YoY); margin **29% → 28%**.  
-  - Drivers: lower auction premia; higher depreciation & contract-mining costs as projects capitalise — **growth-linked** costs, not structural weakness.  
-- **Workforce:** down from ~**272,445** to **~229,000** (FY24); plans to reduce by **~5%/yr** over 5–10 yrs may partially offset wage inflation.  
-- **Capex focus:** first-mile connectivity, land/equipment for new seams, coal gasification, thermal power JVs, and renewables — **offensive capex** aimed at throughput and diversification.
+Over the last three years, Coal India continues to throw off enormous amounts of money, despite some short-term swings.  
 
-> _Idea for later:_ add a **cash-flow waterfall** (FY23 → FY25). I can generate it once you drop the line items (OCF bridge) in INR.
+- In FY23, operating cash flow was extremely strong at around ₹29,000 crore, powered by high e-auction premiums and strong demand.  
+- FY24 was the “weak year,” when cash flow slipped to ~₹18,100 crore, largely because realizations softened and working capital absorbed more cash.  
+- That dip was short-lived. By FY25, operating cash flow rebounded sharply to ~₹29,200 crore, proving that the company’s underlying ability to generate cash remains intact.
+
+Profit has followed a similar path. FY23 was a record year. In FY25, PAT came in at ₹35,302 crore, down 6% from the previous year, with net profit margins edging lower from 29% to 28%.  
+
+This happened primarily because auction premiums declined as hydropower generation picked up and tempered thermal demand, while depreciation and contract mining costs rose as more equipment and projects were capitalized.  
+These are natural costs of growth, not signs of a weakening core business.  
+
+The absolute profit number remains large, and with cash generation back to record levels, Coal India has headroom for both dividends and investment.  
+Some investors have linked this profit dip to the stock’s softer performance over the past year, reading it as a sign of waning pricing power or a “sunset industry.”  
+But the evidence suggests the dip was driven by temporary factors like auction premiums, while the structural ability to generate cash remains unshaken.  
+
+Costs such as wages and depreciation will always be part of the model, yet these are manageable within Coal India’s scale.  
+Coal India has been reducing the size of its workforce from around 272,445 employees a few years ago to just over 229,000 employees by FY24 and plans on continuing to reduce its manpower by about 5% every year over the next 5–10 years — which may help partially offset the cost of increased wages.  
+
+More importantly, the company is investing in first-mile connectivity to lift dispatch capacity, land and equipment to support new seams, and diversification through coal gasification, thermal power JVs, and renewables.  
+This capex is growth-oriented, not defensive.  
+
+The “sunset industry” narrative, which links to the cheap valuation, is perhaps overblown.  
+Yes, renewables are growing fast, and coal’s share of the power mix is projected to decline.  
+But coal is not disappearing. It remains India’s essential baseload fuel — accounting for over 70% of electricity today — and will continue to be the backbone of industrial and power supply for at least the next decade.  
+The government’s energy security strategy depends on domestic coal, and Coal India sits at the center of that.  
 
 ---
 
 ## Potential Drawbacks
 
-- **State ownership**: incentives less aligned to minority shareholders; growth not top priority.  
-- **Upside ceiling**: very high returns less likely vs. high-growth private peers; valuation may stay “cheap.”  
-- **Policy/ESG**: renewables transition & regulations can weigh on multiples; reliance on government decisions persists.
+Coal India is largely a government-held company.  
+Therefore growth isn’t really a priority, and the top brass don’t have much skin in the game.  
+Very, very strong returns are unlikely because growth potential is not high.  
 
----
-
-## Bottom Line
-
-Coal India remains a **dominant, cash-rich utility-style** producer with policy support and long runway as India’s baseload evolves. For a paper portfolio, it’s a **defensive cash generator** with income and limited downside; treat it as a **durable yield + modest compounding** story rather than a hyper-growth bet.
+However, in an incredibly expensive Indian market, it seems like a good place to park one’s cash, and enjoy the dividends.
