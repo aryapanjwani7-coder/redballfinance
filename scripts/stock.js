@@ -75,30 +75,62 @@
       const resp = await fetch(`${path}?v=${Date.now()}`, { cache: 'no-store' });
       tried.push(`${path} → ${resp.status}`);
       if (!resp.ok) continue;
+
       const md = await resp.text();
-      document.getElementById('report').innerHTML = marked.parse(md);
-      const h1 = md.match(/^#\s+(.+)/m);
-      const title = h1 ? h1[1].trim() : (stockMeta?.name || symbol || slug || 'Stock Report');
+      const rep = document.getElementById('report');
+      if (!rep) return;
+
+      let html = '';
+      // Try Marked first (if present)
+      try {
+        if (window.marked && typeof marked.parse === 'function') {
+          html = marked.parse(md);
+        }
+      } catch (e) {
+        console.error('[report] marked.parse error:', e);
+      }
+
+      if (!html) {
+        // Fallback: show raw markdown safely so content is visible
+        const pre = document.createElement('pre');
+        pre.style.whiteSpace = 'pre-wrap';
+        pre.style.lineHeight = '1.5';
+        pre.textContent = md;
+        rep.replaceChildren(pre);
+      } else {
+        rep.innerHTML = html;
+      }
+
+      // Title from first H1 if present; else fallback to name/symbol
+      let title = (md.match(/^#\s+(.+)/m) || [,''])[1]?.trim();
+      if (!title) title = stockMeta?.name || symbol || slug || 'Stock Report';
       const nameEl = document.getElementById('stockName');
       if (nameEl) nameEl.textContent = title;
       document.title = `${title} – Stock Report`;
+
+      console.info('[report] loaded:', path);
       return;
     } catch (e) {
       tried.push(`${path} → error`);
+      console.error('[report] fetch/render error for path', path, e);
     }
   }
 
-  const safe = p => `<li><a href="${p.split(' → ')[0]}" target="_blank" rel="noopener">${p}</a></li>`;
+  // If none worked, show the tried list
+  const title = stockMeta?.name || symbol || slug || 'Stock Report';
+  const nameEl = document.getElementById('stockName');
+  if (nameEl) nameEl.textContent = title;
+
   const rep = document.getElementById('report');
   rep.innerHTML = `
     <p><strong>Report not found.</strong></p>
     <p class="note">I tried these paths:</p>
     <ul class="note" style="margin-top:8px">
-      ${tried.map(safe).join('')}
+      ${tried.map(p => `<li>${p}</li>`).join('')}
     </ul>
-    <p class="note">Click the links above. If any 404s but should exist, rename to <code>reports/coal-india.md</code> (exact case, hyphen, .md) and push.</p>
   `;
 }
+
 
 
   async function drawPriceChart(symbol, buyPriceLocal, buyDate) {
