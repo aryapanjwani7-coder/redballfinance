@@ -1,5 +1,3 @@
-# Coal India Ltd — Investment Report
-
 > **TL;DR**  
 > Coal India is a state-backed behemoth with ~74% market share, cheap valuations (~7× P/E), high returns (ROE ~35–39%), and strong cash flows (FY25 PAT ₹35,302 cr).  
 > While renewables are rising and growth is capped, Coal India offers defensive, yield-heavy exposure with limited downside risk. It's a stable cash generator rather than a high-growth play.
