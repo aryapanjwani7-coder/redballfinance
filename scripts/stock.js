@@ -56,41 +56,50 @@
   }
 
   async function renderReport(symbol, slug, stockMeta) {
-    // Try many sensible file names so you don't get stuck on exact casing
-    const baseFromName = stockMeta?.name ? toSlug(stockMeta.name) : '';
-    const symKebab = String(symbol || '').replace(/\./g, '-');
-    const candidates = [
-      `reports/${slug}.md`,
-      `reports/${slug}.markdown`,
-      `reports/${symKebab}.md`,
-      `reports/${(symbol||'').toUpperCase()}.md`,
-      `reports/${(symbol||'')}.md`,
-      baseFromName ? `reports/${baseFromName}.md` : null,
-    ].filter(Boolean);
+  const toSlug = s => String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
+  const baseFromName = stockMeta?.name ? toSlug(stockMeta.name) : '';
+  const symKebab = String(symbol || '').replace(/\./g, '-');
 
-    const tried = [];
-    for (const path of candidates) {
-      try {
-        const resp = await fetch(`${path}?v=${Date.now()}`, { cache: 'no-store' });
-        tried.push(path);
-        if (!resp.ok) continue;
-        const md = await resp.text();
-        $('#report').innerHTML = marked.parse(md);
-        const h1 = md.match(/^#\s+(.+)/m);
-        const title = h1 ? h1[1].trim() : (stockMeta?.name || symbol || slug || 'Stock Report');
-        $('#stockName')?.replaceChildren(document.createTextNode(title));
-        document.title = `${title} – Stock Report`;
-        console.info('[report] loaded:', path);
-        return;
-      } catch (e) {
-        console.warn('[report] fetch failed:', path, e);
-      }
+  const candidates = [
+    `reports/${slug}.md`,
+    `reports/${slug}.markdown`,
+    `reports/${symKebab}.md`,
+    `reports/${(symbol||'')}.md`,
+    `reports/${(symbol||'').toUpperCase()}.md`,
+    baseFromName ? `reports/${baseFromName}.md` : null,
+  ].filter(Boolean);
+
+  const tried = [];
+  for (const path of candidates) {
+    try {
+      const resp = await fetch(`${path}?v=${Date.now()}`, { cache: 'no-store' });
+      tried.push(`${path} → ${resp.status}`);
+      if (!resp.ok) continue;
+      const md = await resp.text();
+      document.getElementById('report').innerHTML = marked.parse(md);
+      const h1 = md.match(/^#\s+(.+)/m);
+      const title = h1 ? h1[1].trim() : (stockMeta?.name || symbol || slug || 'Stock Report');
+      const nameEl = document.getElementById('stockName');
+      if (nameEl) nameEl.textContent = title;
+      document.title = `${title} – Stock Report`;
+      return;
+    } catch (e) {
+      tried.push(`${path} → error`);
     }
-    const title = stockMeta?.name || symbol || slug || 'Stock Report';
-    $('#stockName')?.replaceChildren(document.createTextNode(title));
-    $('#report')?.replaceChildren(document.createTextNode('Report not found.'));
-    console.error('[report] not found. Tried:', tried);
   }
+
+  const safe = p => `<li><a href="${p.split(' → ')[0]}" target="_blank" rel="noopener">${p}</a></li>`;
+  const rep = document.getElementById('report');
+  rep.innerHTML = `
+    <p><strong>Report not found.</strong></p>
+    <p class="note">I tried these paths:</p>
+    <ul class="note" style="margin-top:8px">
+      ${tried.map(safe).join('')}
+    </ul>
+    <p class="note">Click the links above. If any 404s but should exist, rename to <code>reports/coal-india.md</code> (exact case, hyphen, .md) and push.</p>
+  `;
+}
+
 
   async function drawPriceChart(symbol, buyPriceLocal, buyDate) {
     const canvas = $('#priceChart'); if (!canvas) return;
