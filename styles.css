@@ -96,3 +96,28 @@ a:visited{color:var(--link)}
 .footer-inner{display:flex;align-items:center;justify-content:space-between}
 .footer-inner a{color:var(--muted)}
 .footer-inner a:hover{color:var(--link-hover)}
+
+
+/* Collapsible sections inside reports */
+.prose details{
+  border:1px solid var(--border);
+  border-radius:12px;
+  margin:12px 0;
+  padding:12px 14px;
+  background:rgba(255,255,255,0.02);
+}
+.prose summary{
+  cursor:pointer;
+  font-weight:600;
+  list-style:none;
+}
+.prose summary::-webkit-details-marker{display:none}
+.prose details summary::after{
+  content:"+";
+  float:right;
+  color:var(--muted);
+}
+.prose details[open] summary::after{
+  content:"–";
+}
+
