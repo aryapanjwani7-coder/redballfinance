@@ -56,12 +56,23 @@
   }
 
   async function renderReport(symbol, slug, stockMeta) {
-    const candidates = [];
-    if (symbol) candidates.push(`reports/${encodeURIComponent(symbol)}.md`);
-    if (slug)   candidates.push(`reports/${encodeURIComponent(slug)}.md`);
+    // Try many sensible file names so you don't get stuck on exact casing
+    const baseFromName = stockMeta?.name ? toSlug(stockMeta.name) : '';
+    const symKebab = String(symbol || '').replace(/\./g, '-');
+    const candidates = [
+      `reports/${slug}.md`,
+      `reports/${slug}.markdown`,
+      `reports/${symKebab}.md`,
+      `reports/${(symbol||'').toUpperCase()}.md`,
+      `reports/${(symbol||'')}.md`,
+      baseFromName ? `reports/${baseFromName}.md` : null,
+    ].filter(Boolean);
+
+    const tried = [];
     for (const path of candidates) {
       try {
         const resp = await fetch(`${path}?v=${Date.now()}`, { cache: 'no-store' });
+        tried.push(path);
         if (!resp.ok) continue;
         const md = await resp.text();
         $('#report').innerHTML = marked.parse(md);
@@ -69,12 +80,16 @@
         const title = h1 ? h1[1].trim() : (stockMeta?.name || symbol || slug || 'Stock Report');
         $('#stockName')?.replaceChildren(document.createTextNode(title));
         document.title = `${title} – Stock Report`;
+        console.info('[report] loaded:', path);
         return;
-      } catch {}
+      } catch (e) {
+        console.warn('[report] fetch failed:', path, e);
+      }
     }
     const title = stockMeta?.name || symbol || slug || 'Stock Report';
     $('#stockName')?.replaceChildren(document.createTextNode(title));
     $('#report')?.replaceChildren(document.createTextNode('Report not found.'));
+    console.error('[report] not found. Tried:', tried);
   }
 
   async function drawPriceChart(symbol, buyPriceLocal, buyDate) {
@@ -135,84 +150,45 @@
     }
   }
 
-  async function main() {
-    const now = new Date(); const y = $('#year'); if (y) y.textContent = now.getFullYear();
-
-    const chosen = await resolveTarget();
-    if (!chosen) {
-      const msg = urlSlug
-        ? `Unknown slug "${urlSlug}".`
-        : (urlSymbol ? `Unknown symbol "${urlSymbol}".` : 'Missing ?slug= or ?symbol=');
-      $('#priceChart')?.replaceWith(msg);
-      return;
-    }
-    const { symbol, pos, stockMeta, slug } = chosen;
-
-    $('#ticker') && ($('#ticker').textContent = symbol);
-    const ccy = curFor(symbol);
-
-    if (pos) {
-      $('#buyDate')  && ($('#buyDate').textContent  = pos.buy_date || '');
-      $('#qty')      && ($('#qty').textContent      = fmt(pos.qty));
-      $('#buyPrice') && ($('#buyPrice').textContent = `${symFor(ccy)}${fmt(pos.buy_price_local)} ${ccy}`);
-      if (Number.isFinite(+pos.cost_local)) {
-        $('#cost') && ($('#cost').textContent = `${symFor(ccy)}${fmt(pos.cost_local)} ${ccy}`);
-      }
-    } else {
-      // fallback to stocks.json if positions missing
-      const qty = stockMeta?.qty, bp = stockMeta?.buy_price, bd = stockMeta?.buy_date;
-      $('#buyDate')  && ($('#buyDate').textContent  = bd || '');
-      $('#qty')      && ($('#qty').textContent      = (qty ?? '').toString());
-      $('#buyPrice') && ($('#buyPrice').textContent = (bp != null ? `${symFor(ccy)}${fmt(bp)} ${ccy}` : ''));
-      if (qty && bp) $('#cost') && ($('#cost').textContent = `${symFor(ccy)}${fmt(qty*bp)} ${ccy}`);
-    }
-
-    await renderReport(symbol, slug, stockMeta);
-    await drawPriceChart(symbol, pos?.buy_price_local ?? stockMeta?.buy_price, pos?.buy_date ?? stockMeta?.buy_date);
-  }
-
-  async function drawCashflowBridge(symbol) {
+  async function drawCashflowBridge(symbol, slug) {
     const el = document.getElementById('cashFlowChart');
     if (!el) return;
-  
-    // Try to fetch the cashflow JSON; if missing, quietly skip.
-    let data;
-    try {
-      const res = await fetch(`data/cashflows/${encodeURIComponent(symbol)}.json?v=${Date.now()}`, { cache: 'no-store' });
-      if (!res.ok) return; // no chart if not found
-      data = await res.json();
-    } catch {
-      return;
+
+    const paths = [
+      `data/cashflows/${encodeURIComponent(symbol)}.json`,
+      `data/cashflows/${encodeURIComponent(symbol.replace(/\./g,'-'))}.json`,
+      slug ? `data/cashflows/${encodeURIComponent(slug)}.json` : null
+    ].filter(Boolean);
+
+    let data=null, used=null, tried=[];
+    for (const p of paths) {
+      try {
+        const res = await fetch(`${p}?v=${Date.now()}`, { cache: 'no-store' });
+        tried.push(p);
+        if (!res.ok) continue;
+        data = await res.json(); used=p; break;
+      } catch {}
     }
-  
-    const years = (data.years || []).slice(0, 3); // expecting FY23, FY24, FY25
-    if (years.length < 3) return;
-  
-    const s0 = Number(years[0].ocf);          // FY23
-    const s1 = Number(years[1].ocf);          // FY24
-    const s2 = Number(years[2].ocf);          // FY25
-    if (![s0, s1, s2].every(n => Number.isFinite(n))) return;
-  
-    // Deltas
-    const d1 = s1 - s0; // FY24 change vs FY23
-    const d2 = s2 - s1; // FY25 change vs FY24
-  
-    // Labels
+    if (!data) { console.warn('[cashflow] no JSON found. Tried:', tried); return; }
+
+    const years = (data.years || []).slice(0, 3);
+    if (years.length < 3) { console.warn('[cashflow] need 3 years for bridge:', data); return; }
+
+    const s0 = Number(years[0].ocf), s1 = Number(years[1].ocf), s2 = Number(years[2].ocf);
+    if (![s0,s1,s2].every(n => Number.isFinite(n))) { console.warn('[cashflow] non-numeric totals'); return; }
+
+    const d1 = s1 - s0, d2 = s2 - s1;
     const labels = [years[0].year, `${years[1].year} Δ`, `${years[2].year} Δ`, years[2].year];
-  
-    // Build a classic “stacked bars” waterfall (no plugin).
-    // Two stacks:
-    //  - stack 'bridge': a hidden base + positive and negative delta bars at indices 1 & 2
-    //  - stack 'totals': start and end totals at indices 0 & 3
+
     const base = [0, (d1 >= 0 ? s0 : s0 + d1), (d2 >= 0 ? s1 : s1 + d2), 0];
     const pos  = [0, (d1 > 0 ? d1 : 0),        (d2 > 0 ? d2 : 0),        0];
     const neg  = [0, (d1 < 0 ? -d1 : 0),       (d2 < 0 ? -d2 : 0),       0];
     const totals = [s0, 0, 0, s2];
-  
+
     const ccy = (/\.NS$|\.BO$/i.test(symbol) ? 'INR' : 'USD');
     const sym = (ccy === 'INR' ? '₹' : '$');
     const unit = data.unit || '';
-  
+
     new Chart(el.getContext('2d'), {
       type: 'bar',
       data: {
@@ -243,19 +219,43 @@
         }
       }
     });
-  
+
     const note = document.getElementById('cashFlowNote');
     if (note) {
       note.textContent = `Bridge built from totals: ${years[0].year} ${sym}${s0.toLocaleString()} → ${years[1].year} ${sym}${s1.toLocaleString()} → ${years[2].year} ${sym}${s2.toLocaleString()} (${ccy}${unit ? ' ' + unit : ''}).`;
     }
-    await drawCashflowBridge(symbol);
-
-
-    
+    console.info('[cashflow] loaded:', used);
   }
 
+  async function main() {
+    const now = new Date(); const y = $('#year'); if (y) y.textContent = now.getFullYear();
 
+    const chosen = await resolveTarget();
+    if (!chosen) {
+      const msg = urlSlug
+        ? `Unknown slug "${urlSlug}".`
+        : (urlSymbol ? `Unknown symbol "${urlSymbol}".` : 'Missing ?slug= or ?symbol=');
+      $('#priceChart')?.replaceWith(msg);
+      return;
+    }
+    const { symbol, pos, stockMeta, slug } = chosen;
 
-  
+    $('#ticker') && ($('#ticker').textContent = symbol);
+    const ccy = curFor(symbol);
+
+    if (pos) {
+      $('#buyDate')  && ($('#buyDate').textContent  = pos.buy_date || '');
+      $('#qty')      && ($('#qty').textContent      = fmt(pos.qty));
+      $('#buyPrice') && ($('#buyPrice').textContent = `${symFor(ccy)}${fmt(pos.buy_price_local)} ${ccy}`);
+      if (Number.isFinite(+pos.cost_local)) {
+        $('#cost') && ($('#cost').textContent = `${symFor(ccy)}${fmt(pos.cost_local)} ${ccy}`);
+      }
+    }
+
+    await renderReport(symbol, slug, stockMeta);
+    await drawPriceChart(symbol, pos?.buy_price_local ?? stockMeta?.buy_price, pos?.buy_date ?? stockMeta?.buy_date);
+    await drawCashflowBridge(symbol, slug);
+  }
+
   main();
 })();
