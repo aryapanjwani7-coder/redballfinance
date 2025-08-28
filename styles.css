@@ -121,3 +121,11 @@ a:visited{color:var(--link)}
   content:"–";
 }
 
+
+.prose pre {
+  background: rgba(255,255,255,0.02);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 16px;
+  overflow: auto;
+}
