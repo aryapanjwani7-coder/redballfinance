@@ -171,84 +171,88 @@
     await drawPriceChart(symbol, pos?.buy_price_local ?? stockMeta?.buy_price, pos?.buy_date ?? stockMeta?.buy_date);
   }
 
-async function drawCashflowBridge(symbol) {
-  const el = document.getElementById('cashFlowChart');
-  if (!el) return;
-
-  // Try to fetch the cashflow JSON; if missing, quietly skip.
-  let data;
-  try {
-    const res = await fetch(`data/cashflows/${encodeURIComponent(symbol)}.json?v=${Date.now()}`, { cache: 'no-store' });
-    if (!res.ok) return; // no chart if not found
-    data = await res.json();
-  } catch {
-    return;
-  }
-
-  const years = (data.years || []).slice(0, 3); // expecting FY23, FY24, FY25
-  if (years.length < 3) return;
-
-  const s0 = Number(years[0].ocf);          // FY23
-  const s1 = Number(years[1].ocf);          // FY24
-  const s2 = Number(years[2].ocf);          // FY25
-  if (![s0, s1, s2].every(n => Number.isFinite(n))) return;
-
-  // Deltas
-  const d1 = s1 - s0; // FY24 change vs FY23
-  const d2 = s2 - s1; // FY25 change vs FY24
-
-  // Labels
-  const labels = [years[0].year, `${years[1].year} Δ`, `${years[2].year} Δ`, years[2].year];
-
-  // Build a classic “stacked bars” waterfall (no plugin).
-  // Two stacks:
-  //  - stack 'bridge': a hidden base + positive and negative delta bars at indices 1 & 2
-  //  - stack 'totals': start and end totals at indices 0 & 3
-  const base = [0, (d1 >= 0 ? s0 : s0 + d1), (d2 >= 0 ? s1 : s1 + d2), 0];
-  const pos  = [0, (d1 > 0 ? d1 : 0),        (d2 > 0 ? d2 : 0),        0];
-  const neg  = [0, (d1 < 0 ? -d1 : 0),       (d2 < 0 ? -d2 : 0),       0];
-  const totals = [s0, 0, 0, s2];
-
-  const ccy = (/\.NS$|\.BO$/i.test(symbol) ? 'INR' : 'USD');
-  const sym = (ccy === 'INR' ? '₹' : '$');
-  const unit = data.unit || '';
-
-  new Chart(el.getContext('2d'), {
-    type: 'bar',
-    data: {
-      labels,
-      datasets: [
-        { label: 'Base', data: base, backgroundColor: 'rgba(0,0,0,0)', stack: 'bridge', borderSkipped: false },
-        { label: 'Increase', data: pos, backgroundColor: 'rgba(0, 208, 156, 0.9)', stack: 'bridge', borderSkipped: false },
-        { label: 'Decrease', data: neg, backgroundColor: 'rgba(255, 107, 107, 0.9)', stack: 'bridge', borderSkipped: false },
-        { label: 'Total', data: totals, backgroundColor: 'rgba(138, 208, 255, 0.85)', stack: 'totals', borderSkipped: false }
-      ]
-    },
-    options: {
-      responsive: true,
-      scales: {
-        x: { stacked: true },
-        y: { stacked: false, beginAtZero: true }
+  async function drawCashflowBridge(symbol) {
+    const el = document.getElementById('cashFlowChart');
+    if (!el) return;
+  
+    // Try to fetch the cashflow JSON; if missing, quietly skip.
+    let data;
+    try {
+      const res = await fetch(`data/cashflows/${encodeURIComponent(symbol)}.json?v=${Date.now()}`, { cache: 'no-store' });
+      if (!res.ok) return; // no chart if not found
+      data = await res.json();
+    } catch {
+      return;
+    }
+  
+    const years = (data.years || []).slice(0, 3); // expecting FY23, FY24, FY25
+    if (years.length < 3) return;
+  
+    const s0 = Number(years[0].ocf);          // FY23
+    const s1 = Number(years[1].ocf);          // FY24
+    const s2 = Number(years[2].ocf);          // FY25
+    if (![s0, s1, s2].every(n => Number.isFinite(n))) return;
+  
+    // Deltas
+    const d1 = s1 - s0; // FY24 change vs FY23
+    const d2 = s2 - s1; // FY25 change vs FY24
+  
+    // Labels
+    const labels = [years[0].year, `${years[1].year} Δ`, `${years[2].year} Δ`, years[2].year];
+  
+    // Build a classic “stacked bars” waterfall (no plugin).
+    // Two stacks:
+    //  - stack 'bridge': a hidden base + positive and negative delta bars at indices 1 & 2
+    //  - stack 'totals': start and end totals at indices 0 & 3
+    const base = [0, (d1 >= 0 ? s0 : s0 + d1), (d2 >= 0 ? s1 : s1 + d2), 0];
+    const pos  = [0, (d1 > 0 ? d1 : 0),        (d2 > 0 ? d2 : 0),        0];
+    const neg  = [0, (d1 < 0 ? -d1 : 0),       (d2 < 0 ? -d2 : 0),       0];
+    const totals = [s0, 0, 0, s2];
+  
+    const ccy = (/\.NS$|\.BO$/i.test(symbol) ? 'INR' : 'USD');
+    const sym = (ccy === 'INR' ? '₹' : '$');
+    const unit = data.unit || '';
+  
+    new Chart(el.getContext('2d'), {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          { label: 'Base', data: base, backgroundColor: 'rgba(0,0,0,0)', stack: 'bridge', borderSkipped: false },
+          { label: 'Increase', data: pos, backgroundColor: 'rgba(0, 208, 156, 0.9)', stack: 'bridge', borderSkipped: false },
+          { label: 'Decrease', data: neg, backgroundColor: 'rgba(255, 107, 107, 0.9)', stack: 'bridge', borderSkipped: false },
+          { label: 'Total', data: totals, backgroundColor: 'rgba(138, 208, 255, 0.85)', stack: 'totals', borderSkipped: false }
+        ]
       },
-      plugins: {
-        legend: { display: true },
-        tooltip: {
-          callbacks: {
-            label(ctx) {
-              const v = ctx.parsed.y;
-              return `${ctx.dataset.label}: ${sym}${Number(v).toLocaleString()} ${ccy}${unit ? ' ' + unit : ''}`;
+      options: {
+        responsive: true,
+        scales: {
+          x: { stacked: true },
+          y: { stacked: false, beginAtZero: true }
+        },
+        plugins: {
+          legend: { display: true },
+          tooltip: {
+            callbacks: {
+              label(ctx) {
+                const v = ctx.parsed.y;
+                return `${ctx.dataset.label}: ${sym}${Number(v).toLocaleString()} ${ccy}${unit ? ' ' + unit : ''}`;
+              }
             }
           }
         }
       }
+    });
+  
+    const note = document.getElementById('cashFlowNote');
+    if (note) {
+      note.textContent = `Bridge built from totals: ${years[0].year} ${sym}${s0.toLocaleString()} → ${years[1].year} ${sym}${s1.toLocaleString()} → ${years[2].year} ${sym}${s2.toLocaleString()} (${ccy}${unit ? ' ' + unit : ''}).`;
     }
-  });
+    await drawCashflowBridge(symbol);
 
-  const note = document.getElementById('cashFlowNote');
-  if (note) {
-    note.textContent = `Bridge built from totals: ${years[0].year} ${sym}${s0.toLocaleString()} → ${years[1].year} ${sym}${s1.toLocaleString()} → ${years[2].year} ${sym}${s2.toLocaleString()} (${ccy}${unit ? ' ' + unit : ''}).`;
+
+    
   }
-}
 
 
 
