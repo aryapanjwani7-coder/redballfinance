@@ -63,30 +63,30 @@ The current valuation definitely isn’t cheap, however there are indicators of 
 ## Indicators of Sustainable Growth
 
 ### 1. Structural Demand Tailwinds
-- India’s **Jal Jeevan Mission, AMRUT 2.0, irrigation, and smart cities** projects all require advanced pumps and fluid management systems.  
-- **Energy transition** to nuclear, hydro, and renewables creates demand for specialised pumping systems. KBL already supplies nuclear plants and has patented hydro technologies.  
-- Globally, the push for **clean water access and infrastructure modernisation** supports export growth.  
+- India’s Jal Jeevan Mission, AMRUT 2.0, irrigation, and smart cities projects all require advanced pumps and fluid management systems.  
+- Energy transition to nuclear, hydro, and renewables creates demand for specialised pumping systems. KBL already supplies nuclear plants and has patented hydro technologies.  
+- Globally, the push for clean water access and infrastructure modernisation supports export growth.  
 
 ### 2. Repeat, Sticky Customers
-- Large infrastructure and power projects are **multi-year contracts** with long product lifecycles.  
-- Once installed, pumps need **maintenance, service, and replacements**, creating annuity-like revenues.  
-- In FY25, KBL secured **large repeat orders in irrigation and valves**, showing strong customer retention.  
+- Large infrastructure and power projects are multi-year contracts with long product lifecycles.  
+- Once installed, pumps need maintenance, service, and replacements, creating annuity-like revenues.  
+- In FY25, KBL secured large repeat orders in irrigation and valves, showing strong customer retention.  
 
 ### 3. Product Mix Shift to High-Margin Segments
-- Profit growth (21% CAGR) has far outpaced sales growth (~7.5%), reflecting a **shift to premium, higher-margin solutions**.  
-- Offerings include **IoT-enabled, energy-efficient, and nuclear-grade pumps**.  
-- Increasingly, tenders specify **IoT-based solutions**, ensuring this trend continues.  
+- Profit growth (21% CAGR) has far outpaced sales growth (~7.5%), reflecting a shift to premium, higher-margin solutions.  
+- Offerings include IoT-enabled, energy-efficient, and nuclear-grade pumps.  
+- Increasingly, tenders specify IoT-based solutions, ensuring this trend continues.  
 
 ### 4. Global Diversification
-- Subsidiaries across the **UK, USA, Europe, Africa, and Asia** drive international growth.  
-- KBL’s international arm delivered **robust top-line growth in FY25**.  
-- This diversification reduces reliance on India and opens access to **higher-value overseas projects**.  
-- While global political risk exists, the **current contracts reflect trust** in KBL’s product quality.  
+- Subsidiaries across the UK, USA, Europe, Africa, and Asia drive international growth.  
+- KBL’s international arm delivered robust top-line growth in FY25.  
+- This diversification reduces reliance on India and opens access to higher-value overseas projects.  
+- While global political risk exists, the current contracts reflect trust in KBL’s product quality.  
 
 ### 5. Capital Efficiency
-- ROCE of ~28% means KBL can grow **without massive reinvestment**.  
-- Growth is largely **self-funded** with minimal dilution or debt.  
-- The strong balance sheet allows both **expansion and compounding earnings** over time.  
+- ROCE of ~28% means KBL can grow without massive reinvestment.  
+- Growth is largely self-funded with minimal dilution or debt.  
+- The strong balance sheet allows both expansion and compounding earnings over time.  
 
 ---
 
