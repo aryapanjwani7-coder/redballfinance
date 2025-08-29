@@ -58,54 +58,35 @@ Kirloskar Brothers currently trades at a P/E of 36.5 and a P/B of 7.4, above sec
 On the profitability front, the company is attractive. The ROE at 21.6% and ROCE at 27.6% suggest high capital efficiency. Net margins are around 9.5%, healthy for its industry, and profits have grown at 21% CAGR over the past five years compared with ~7.5% sales growth, a product of strong operating leverage and an improving product mix.
 The current valuation definitely isn’t cheap, however there are indicators of sustainable growth that could make this a good long term investment. 
 
-Indicators of sustainable growth:
-Structural Demand Tailwinds
+---
 
+## Indicators of Sustainable Growth
 
-India is investing heavily in water supply (Jal Jeevan Mission, AMRUT 2.0), irrigation, and smart cities. Pumps and fluid management are core to these projects.
+### 1. Structural Demand Tailwinds
+- India’s **Jal Jeevan Mission, AMRUT 2.0, irrigation, and smart cities** projects all require advanced pumps and fluid management systems.  
+- **Energy transition** to nuclear, hydro, and renewables creates demand for specialised pumping systems. KBL already supplies nuclear plants and has patented hydro technologies.  
+- Globally, the push for **clean water access and infrastructure modernisation** supports export growth.  
 
+### 2. Repeat, Sticky Customers
+- Large infrastructure and power projects are **multi-year contracts** with long product lifecycles.  
+- Once installed, pumps need **maintenance, service, and replacements**, creating annuity-like revenues.  
+- In FY25, KBL secured **large repeat orders in irrigation and valves**, showing strong customer retention.  
 
-Energy transition → nuclear, hydro, and renewables all require advanced pumping systems. KBL is already supplying to nuclear power plants and has patented hydro technologies.
+### 3. Product Mix Shift to High-Margin Segments
+- Profit growth (21% CAGR) has far outpaced sales growth (~7.5%), reflecting a **shift to premium, higher-margin solutions**.  
+- Offerings include **IoT-enabled, energy-efficient, and nuclear-grade pumps**.  
+- Increasingly, tenders specify **IoT-based solutions**, ensuring this trend continues.  
 
+### 4. Global Diversification
+- Subsidiaries across the **UK, USA, Europe, Africa, and Asia** drive international growth.  
+- KBL’s international arm delivered **robust top-line growth in FY25**.  
+- This diversification reduces reliance on India and opens access to **higher-value overseas projects**.  
+- While global political risk exists, the **current contracts reflect trust** in KBL’s product quality.  
 
-Globally, rising demand for clean water and infrastructure modernisation supports exports.
-
-
-Repeat, Sticky Customers
-
-
-Large infrastructure and power projects are multi-year contracts. Once installed, pumps need maintenance, servicing, and replacement, creating annuity-like revenues.
-
-
-Evidence: KBL reported large repeat orders in FY25 for irrigation and valves—a sign customers keep coming back.
-
-
-Product Mix Shift to High-Margin Segments
-
-
-Profits have grown at 21% CAGR, far faster than sales (~7.5%). This suggests KBL is moving into premium solutions (IoT-enabled, energy-efficient, nuclear-grade pumps) where margins are much higher.
-
-
-As more tenders specify IoT-based solutions, this trend should continue.
-
-
-Global Diversification
-
-
-Through subsidiaries in the UK, USA, Europe, Africa, and Asia, KBL has exposure beyond India. Its international arm delivered robust top-line growth in FY25.
-
-
-This reduces dependence on domestic cycles and opens access to higher-value overseas projects.
-Although the global diversification may be subject to the global political landscape, the current contracts indicate a high level of trust in the quality of Kirloskar Brothers’ products. 
-
-
-Capital Efficiency
-
-
-With ROCE ~28%, KBL doesn’t need massive reinvestment to grow. This allows compounding without heavy dilution or debt.
-
-
-It can fund growth internally while maintaining balance sheet strength.
+### 5. Capital Efficiency
+- ROCE of ~28% means KBL can grow **without massive reinvestment**.  
+- Growth is largely **self-funded** with minimal dilution or debt.  
+- The strong balance sheet allows both **expansion and compounding earnings** over time.  
 
 ---
 
@@ -123,6 +104,6 @@ Overall, the dip in cash balance reflects KBL’s deliberate choice to reinvest 
 
 ## Potential Drawbacks
 
-Kirloskar Brothers trades at a rich valuation (P/E 36.5, P/B 7.4). This makes the stock sensitive to even small disappointments — weaker growth, margin pressure, or project delays could cause sharp short-term corrections (1–2 years).
-For long-term investors, those swings may matter less if profits keep compounding, but if growth slows structurally, the premium valuation may not hold. With a low dividend yield, returns rely almost entirely on sustained earnings growth.
-However, if I look to purchase this stock with a long term horizon, corrections in the next 1-3 years due to temporary shifts are simply noise. In fact, they may be opportunities to double down and buy more. The only real danger is if KBL turns into a structurally slower-growth company. Based on its order book, global reach, and industry trends, that risk looks low right now.
+Kirloskar Brothers trades at a rich valuation (P/E 36.5, P/B 7.4). This makes the stock sensitive to even small disappointments — weaker growth, margin pressure, or project delays could cause sharp short-term corrections (1–2 years).  
+For long-term investors, those swings may matter less if profits keep compounding, but if growth slows structurally, the premium valuation may not hold. With a low dividend yield, returns rely almost entirely on sustained earnings growth.  
+However, if I look to purchase this stock with a long term horizon, corrections in the next 1–3 years due to temporary shifts are simply noise. In fact, they may be opportunities to double down and buy more. The only real danger is if KBL turns into a structurally slower-growth company. Based on its order book, global reach, and industry trends, that risk looks low right now.
