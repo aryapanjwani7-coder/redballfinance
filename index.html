@@ -25,16 +25,13 @@
   <main class="container">
     <section class="hero">
       <div class="hero-grid">
-        <!-- Left: headline with exact line breaks -->
         <div>
           <h1>
             See stocks I'm<br/>
-            investing in... and<br/>
+            investing in and<br/>
             why.
           </h1>
         </div>
-
-        <!-- Right: tagline + buttons -->
         <div>
           <p class="hero-sub">
             I track my top picks, share real-time charts, and explain my rationale.
@@ -51,6 +48,17 @@
       <h2>Portfolio NAV</h2>
       <canvas id="navChart" height="120"></canvas>
       <p class="note">Indexed to 100 at first investment date. Updates daily after market data is available. (USD)</p>
+    </section>
+
+    <!-- Cash card -->
+    <section id="cash" class="card soft">
+      <h3>Cash</h3>
+      <div class="kv">
+        <div><span>Cash balance</span><strong id="cashAmt">—</strong></div>
+        <div><span>% of NAV</span><strong id="cashPct">—</strong></div>
+        <div><span>As of</span><strong id="cashDate">—</strong></div>
+      </div>
+      <p class="note" id="cashNote">Pulled from NAV summary (USD).</p>
     </section>
 
     <!-- Chart.js + date adapter -->
