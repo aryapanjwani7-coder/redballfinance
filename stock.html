@@ -7,22 +7,10 @@
   <meta name="description" content="Detailed write-up for a position in my paper portfolio." />
   <link rel="stylesheet" href="styles.css" />
   <script src="https://unpkg.com/marked/marked.min.js"></script>
-  <script>
-    if (window.marked) {
-      marked.setOptions({
-        breaks: true,
-        gfm: true,
-        headerIds: true,
-        mangle: false,   // don’t mangle HTML
-      });
-    }
-  </script>
-
+  <!-- Prefer markdown-it for robust HTML-in-Markdown support -->
+  <script src="https://cdn.jsdelivr.net/npm/markdown-it@13/dist/markdown-it.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3"></script>
-  <!-- Markdown-it (robust HTML-in-Markdown support) -->
-  <script src="https://cdn.jsdelivr.net/npm/markdown-it@13/dist/markdown-it.min.js"></script>
-
 </head>
 <body>
   <header class="site-header">
@@ -37,6 +25,7 @@
     </div>
   </header>
 
+  <!-- Price chart only -->
   <section class="card soft">
     <h3>Price chart</h3>
     <canvas id="priceChart" height="120"></canvas>
@@ -61,14 +50,6 @@
       <article id="report" class="prose">Loading report…</article>
     </section>
 
-
-    <section class="card soft">
-      <h3>Cash flow (OCF) bridge</h3>
-      <canvas id="cashFlowChart" height="120"></canvas>
-      <p class="note" id="cashFlowNote">OCF totals shown as a bridge from FY23 → FY24 → FY25 (INR crore).</p>
-    </section>
-
-    
     <section class="card soft">
       <h3>Position snapshot</h3>
       <div class="kv">
