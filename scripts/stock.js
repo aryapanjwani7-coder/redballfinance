@@ -56,83 +56,77 @@
   }
 
   async function renderReport(symbol, slug, stockMeta) {
-  const toSlug = s => String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
-  const baseFromName = stockMeta?.name ? toSlug(stockMeta.name) : '';
-  const symKebab = String(symbol || '').replace(/\./g, '-');
+    const toSlug = s => String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
+    const baseFromName = stockMeta?.name ? toSlug(stockMeta.name) : '';
+    const symKebab = String(symbol || '').replace(/\./g, '-');
 
-  const candidates = [
-    `reports/${slug}.md`,
-    `reports/${slug}.markdown`,
-    `reports/${symKebab}.md`,
-    `reports/${(symbol||'')}.md`,
-    `reports/${(symbol||'').toUpperCase()}.md`,
-    baseFromName ? `reports/${baseFromName}.md` : null,
-  ].filter(Boolean);
+    const candidates = [
+      `reports/${slug}.md`,
+      `reports/${slug}.markdown`,
+      `reports/${symKebab}.md`,
+      `reports/${(symbol||'')}.md`,
+      `reports/${(symbol||'').toUpperCase()}.md`,
+      baseFromName ? `reports/${baseFromName}.md` : null,
+    ].filter(Boolean);
 
-  const tried = [];
-  for (const path of candidates) {
-    try {
-      const resp = await fetch(`${path}?v=${Date.now()}`, { cache: 'no-store' });
-      tried.push(`${path} → ${resp.status}`);
-      if (!resp.ok) continue;
-
-      const src = await resp.text();
-      const rep = document.getElementById('report');
-      if (!rep) return;
-
-      // Prefer markdown-it (handles <details>, HTML) → then Marked → fallback <pre>
-      let html = '';
+    const tried = [];
+    for (const path of candidates) {
       try {
-        if (window.markdownit) {
-          const md = window.markdownit({ html: true, linkify: true, breaks: true });
-          html = md.render(src);
-        } else if (window.marked && typeof marked.parse === 'function') {
-          // Allow GFM + breaks; let raw HTML pass through
-          if (marked.setOptions) {
-            marked.setOptions({ gfm: true, breaks: true, headerIds: true, mangle: false });
+        const resp = await fetch(`${path}?v=${Date.now()}`, { cache: 'no-store' });
+        tried.push(`${path} → ${resp.status}`);
+        if (!resp.ok) continue;
+
+        const src = await resp.text();
+        const rep = document.getElementById('report');
+        if (!rep) return;
+
+        // Prefer markdown-it
+        let html = '';
+        try {
+          if (window.markdownit) {
+            const md = window.markdownit({ html: true, linkify: true, breaks: true });
+            html = md.render(src);
+          } else if (window.marked && typeof marked.parse === 'function') {
+            if (marked.setOptions) marked.setOptions({ gfm: true, breaks: true, headerIds: true, mangle: false });
+            html = marked.parse(src);
           }
-          html = marked.parse(src);
+        } catch (e) {
+          console.error('[report] markdown render error:', e);
         }
+
+        if (html) {
+          rep.innerHTML = html;
+        } else {
+          const pre = document.createElement('pre');
+          pre.style.whiteSpace = 'pre-wrap';
+          pre.style.lineHeight = '1.5';
+          pre.textContent = src;
+          rep.replaceChildren(pre);
+        }
+
+        let title = (src.match(/^#\s+(.+)/m) || [,''])[1]?.trim();
+        if (!title) title = stockMeta?.name || symbol || slug || 'Stock Report';
+        const nameEl = document.getElementById('stockName');
+        if (nameEl) nameEl.textContent = title;
+        document.title = `${title} – Stock Report`;
+
+        console.info('[report] loaded:', path);
+        return;
       } catch (e) {
-        console.error('[report] markdown render error:', e);
+        tried.push(`${path} → error`);
+        console.error('[report] fetch/render error for path', path, e);
       }
-
-      if (html) {
-        rep.innerHTML = html;
-      } else {
-        const pre = document.createElement('pre');
-        pre.style.whiteSpace = 'pre-wrap';
-        pre.style.lineHeight = '1.5';
-        pre.textContent = src;
-        rep.replaceChildren(pre);
-      }
-
-      // Title from first H1
-      let title = (src.match(/^#\s+(.+)/m) || [,''])[1]?.trim();
-      if (!title) title = stockMeta?.name || symbol || slug || 'Stock Report';
-      const nameEl = document.getElementById('stockName');
-      if (nameEl) nameEl.textContent = title;
-      document.title = `${title} – Stock Report`;
-
-      console.info('[report] loaded:', path);
-      return;
-    } catch (e) {
-      tried.push(`${path} → error`);
-      console.error('[report] fetch/render error for path', path, e);
     }
+
+    const rep = document.getElementById('report');
+    rep.innerHTML = `
+      <p><strong>Report not found.</strong></p>
+      <p class="note">I tried these paths:</p>
+      <ul class="note" style="margin-top:8px">
+        ${tried.map(p => `<li>${p}</li>`).join('')}
+      </ul>
+    `;
   }
-
-  // If none worked, show tried paths
-  const rep = document.getElementById('report');
-  rep.innerHTML = `
-    <p><strong>Report not found.</strong></p>
-    <p class="note">I tried these paths:</p>
-    <ul class="note" style="margin-top:8px">
-      ${tried.map(p => `<li>${p}</li>`).join('')}
-    </ul>
-  `;
-}
-
 
   async function drawPriceChart(symbol, buyPriceLocal, buyDate) {
     const canvas = $('#priceChart'); if (!canvas) return;
@@ -192,83 +186,6 @@
     }
   }
 
-  async function drawCashflowBridge(symbol, slug) {
-    const el = document.getElementById('cashFlowChart');
-    if (!el) return;
-
-    const paths = [
-      `data/cashflows/${encodeURIComponent(symbol)}.json`,
-      `data/cashflows/${encodeURIComponent(symbol.replace(/\./g,'-'))}.json`,
-      slug ? `data/cashflows/${encodeURIComponent(slug)}.json` : null
-    ].filter(Boolean);
-
-    let data=null, used=null, tried=[];
-    for (const p of paths) {
-      try {
-        const res = await fetch(`${p}?v=${Date.now()}`, { cache: 'no-store' });
-        tried.push(p);
-        if (!res.ok) continue;
-        data = await res.json(); used=p; break;
-      } catch {}
-    }
-    if (!data) { console.warn('[cashflow] no JSON found. Tried:', tried); return; }
-
-    const years = (data.years || []).slice(0, 3);
-    if (years.length < 3) { console.warn('[cashflow] need 3 years for bridge:', data); return; }
-
-    const s0 = Number(years[0].ocf), s1 = Number(years[1].ocf), s2 = Number(years[2].ocf);
-    if (![s0,s1,s2].every(n => Number.isFinite(n))) { console.warn('[cashflow] non-numeric totals'); return; }
-
-    const d1 = s1 - s0, d2 = s2 - s1;
-    const labels = [years[0].year, `${years[1].year} Δ`, `${years[2].year} Δ`, years[2].year];
-
-    const base = [0, (d1 >= 0 ? s0 : s0 + d1), (d2 >= 0 ? s1 : s1 + d2), 0];
-    const pos  = [0, (d1 > 0 ? d1 : 0),        (d2 > 0 ? d2 : 0),        0];
-    const neg  = [0, (d1 < 0 ? -d1 : 0),       (d2 < 0 ? -d2 : 0),       0];
-    const totals = [s0, 0, 0, s2];
-
-    const ccy = (/\.NS$|\.BO$/i.test(symbol) ? 'INR' : 'USD');
-    const sym = (ccy === 'INR' ? '₹' : '$');
-    const unit = data.unit || '';
-
-    new Chart(el.getContext('2d'), {
-      type: 'bar',
-      data: {
-        labels,
-        datasets: [
-          { label: 'Base', data: base, backgroundColor: 'rgba(0,0,0,0)', stack: 'bridge', borderSkipped: false },
-          { label: 'Increase', data: pos, backgroundColor: 'rgba(0, 208, 156, 0.9)', stack: 'bridge', borderSkipped: false },
-          { label: 'Decrease', data: neg, backgroundColor: 'rgba(255, 107, 107, 0.9)', stack: 'bridge', borderSkipped: false },
-          { label: 'Total', data: totals, backgroundColor: 'rgba(138, 208, 255, 0.85)', stack: 'totals', borderSkipped: false }
-        ]
-      },
-      options: {
-        responsive: true,
-        scales: {
-          x: { stacked: true },
-          y: { stacked: false, beginAtZero: true }
-        },
-        plugins: {
-          legend: { display: true },
-          tooltip: {
-            callbacks: {
-              label(ctx) {
-                const v = ctx.parsed.y;
-                return `${ctx.dataset.label}: ${sym}${Number(v).toLocaleString()} ${ccy}${unit ? ' ' + unit : ''}`;
-              }
-            }
-          }
-        }
-      }
-    });
-
-    const note = document.getElementById('cashFlowNote');
-    if (note) {
-      note.textContent = `Bridge built from totals: ${years[0].year} ${sym}${s0.toLocaleString()} → ${years[1].year} ${sym}${s1.toLocaleString()} → ${years[2].year} ${sym}${s2.toLocaleString()} (${ccy}${unit ? ' ' + unit : ''}).`;
-    }
-    console.info('[cashflow] loaded:', used);
-  }
-
   async function main() {
     const now = new Date(); const y = $('#year'); if (y) y.textContent = now.getFullYear();
 
@@ -296,7 +213,6 @@
 
     await renderReport(symbol, slug, stockMeta);
     await drawPriceChart(symbol, pos?.buy_price_local ?? stockMeta?.buy_price, pos?.buy_date ?? stockMeta?.buy_date);
-    await drawCashflowBridge(symbol, slug);
   }
 
   main();
