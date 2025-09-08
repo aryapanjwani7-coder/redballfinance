@@ -1,9 +1,0 @@
-{
-  "currency": "INR",
-  "unit": "crore",
-  "years": [
-    { "year": "FY23", "ocf": 329 },
-    { "year": "FY24", "ocf": 370 },
-    { "year": "FY25", "ocf": 386 }
-  ]
-}
