@@ -100,6 +100,17 @@ jobs:
           head -c 1200 data/nav.json || true
           echo
 
+      - name: Fetch dividends automatically (EODHD)
+        env:
+          EODHD_API_KEY: ${{ secrets.EODHD_API_KEY }}
+        run: |
+          python scripts/ci/fetch_dividends_eodhd.py
+
+      - name: Apply dividends to NAV
+        run: |
+          python scripts/ci/apply_dividends.py
+
+
       - name: Commit & push data
         run: |
           git config user.name "github-actions[bot]"
