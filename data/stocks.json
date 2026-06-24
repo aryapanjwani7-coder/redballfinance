@@ -4,9 +4,8 @@
     "symbol": "COALINDIA.NS",
     "name": "Coal India Ltd",
     "slug": "coal-india",
-    "buy_date": "2025-08-10",
-    "qty": 100,
-    "buy_price": 480,
+    "buy_date": "2025-08-26",
+    "buy_price": 372.45,
     "tags": ["Energy", "Dividend", "Largecap"],
     "thesis_short": "Counter-cyclical cash generator with policy tailwinds and strong FCF.",
     "note": "Watching e-auction realizations and FSA volumes."
@@ -16,9 +15,8 @@
     "symbol": "KIRLOSBROS.NS",
     "name": "Kirloskar Brothers",
     "slug": "kirloskar-brothers",
-    "buy_date": "2025-08-15",
-    "qty": 40,
-    "buy_price": 1650,
+    "buy_date": "2025-08-14",
+    "buy_price": 1887.40,
     "tags": ["Capital Goods", "Infra", "Exports"],
     "thesis_short": "Pumps leader leveraged to infra cycle; order book visibility improving.",
     "note": "Monitoring margin sustainability and export mix."

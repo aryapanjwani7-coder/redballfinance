@@ -175,3 +175,8 @@ a:visited{color:var(--link)}
 .prose details[open] summary::after {
   content: "–";
 }
+
+/* Gain / loss colouring */
+.pos{color:#1a8f4c}
+.neg{color:#e23636}
+td.pos,td.neg{font-weight:600}

@@ -1,12 +1,16 @@
-name: Fetch Prices & Build NAV (Sheets by Tab Name)
+name: Build portfolio data (prices, dividends, NAV, Nifty)
 
 on:
   schedule:
-    - cron: "15 21 * * *"   # daily ~05:15 SGT
+    - cron: "15 21 * * *"   # daily ~02:45 IST (after NSE close + EOD settle)
   workflow_dispatch:
 
 permissions:
   contents: write
+
+concurrency:
+  group: build-data
+  cancel-in-progress: true
 
 jobs:
   build-data:
@@ -17,99 +21,27 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Ensure paths
-        run: |
-          mkdir -p data/quotes scripts/ci
-
-      - name: Check stocks.json exists & valid JSON
-        run: |
-          if [ ! -f data/stocks.json ]; then
-            echo "::error::Missing data/stocks.json"
-            exit 1
-          fi
-          sudo apt-get update && sudo apt-get install -y jq
-          if ! jq . data/stocks.json > /dev/null 2>&1; then
-            echo "::error::data/stocks.json is not valid JSON"
-            exit 1
-          fi
-          echo "stocks.json snippet:"
-          head -n 60 data/stocks.json
-
-      - name: Extract tab names we will fetch (for probe)
-        id: tabs
-        run: |
-          # Build a CSV list of tab names from symbols (COALINDIA.NS -> COALINDIA_NS)
-          TABS=$(jq -r '.[].symbol' data/stocks.json | awk '{gsub(/\./,"_"); print toupper($0)}' | paste -sd "," -)
-          echo "tabs=$TABS,USDINR" >> $GITHUB_OUTPUT
-
-      - name: Probe published CSV endpoints (optional but helpful)
-        env:
-          SHEET_ID: ${{ secrets.SHEET_ID }}
-          TABS: ${{ steps.tabs.outputs.tabs }}
-        run: |
-          IFS=',' read -ra TABLIST <<< "$TABS"
-          for TAB in "${TABLIST[@]}"; do
-            URL="https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${TAB}"
-            echo "PROBE $TAB -> $URL"
-            # show HTTP status and first 200 bytes
-            code=$(curl -s -o /tmp/x.csv -w "%{http_code}" "$URL" || true)
-            head -c 200 /tmp/x.csv || true
-            echo
-            echo "HTTP $code"
-          done
-
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      - name: Install deps
-        run: |
-          python -m pip install --upgrade pip
-          pip install pandas==2.2.2 numpy==1.26.4 requests==2.32.3
-
-      - name: Verify fetch_prices.py exists
-        run: |
-          if [ ! -f scripts/ci/fetch_prices.py ]; then
-            echo "::error::scripts/ci/fetch_prices.py not found (path must be scripts/ci/fetch_prices.py)"
-            exit 1
-          fi
-          sed -n '1,200p' scripts/ci/fetch_prices.py
-
-      - name: Run fetch_prices.py
+      - name: Build data (INR, stdlib only — no deps)
         env:
-          SHEET_ID: "1-oAHFEvGr9lhvPoMXuoedmsHOrJY2r4AgsC47tjRBCs"
-          TAB_GIDS_JSON: ${{ secrets.TAB_GIDS_JSON }}
-          BASE_CURRENCY: "USD"
-          STARTING_CASH: "10000000"
+          STARTING_CASH: "10000000"   # ₹1 crore
           YEARS_BACK: "5"
-
-          # Optional: uncomment and set if your tab names differ from the defaults
-          # TAB_NAME_OVERRIDES: '{"COALINDIA.NS":"CoalIndia_NS","KIRLOSBROS.NS":"KBL_NS","USDINR":"FX"}'
+          BENCH_SYMBOL: "^NSEI"       # Nifty 50 benchmark
+          # Optional Google-Sheet fallback for stock prices (Nifty/dividends still come from Yahoo):
+          SHEET_ID: ${{ secrets.SHEET_ID }}
         run: |
           set -euo pipefail
-          python -u scripts/ci/fetch_prices.py
+          python -u scripts/ci/build_data.py
 
       - name: Show generated files
         run: |
-          echo "quotes dir:"
-          ls -la data/quotes || true
-          echo "nav_summary.json:"
-          cat data/nav_summary.json || true
-          echo "nav.json head:"
-          head -c 1200 data/nav.json || true
-          echo
-
-      - name: Fetch dividends automatically (EODHD)
-        env:
-          EODHD_API_KEY: ${{ secrets.EODHD_API_KEY }}
-        run: |
-          python scripts/ci/fetch_dividends_eodhd.py
-
-      - name: Apply dividends to NAV
-        run: |
-          python scripts/ci/apply_dividends.py
-
+          echo "== nav_summary.json ==" && cat data/nav_summary.json
+          echo "== positions.json ==" && cat data/positions.json
+          echo "== dividends.json (head) ==" && head -c 600 data/dividends.json; echo
 
       - name: Commit & push data
         run: |
@@ -119,7 +51,6 @@ jobs:
           if git diff --cached --quiet; then
             echo "No changes to commit."
           else
-            git commit -m "Update data (quotes, nav, positions) [skip ci]"
+            git commit -m "Update data (prices, dividends, NAV, Nifty) [skip ci]"
             git push
           fi
-

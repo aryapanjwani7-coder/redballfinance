@@ -1,14 +1,16 @@
 {
-  "base_currency": "USD",
+  "base_currency": "INR",
   "starting_cash": 10000000.0,
   "inception_date": "2025-08-14",
   "latest": {
     "date": "2026-06-23",
-    "nav": 10043668.9368,
-    "cash": 9000000.0,
-    "holdings": 1043668.9367650452,
-    "invested": 1000000.0,
-    "pnl_abs": 43668.94,
-    "pnl_pct": 0.437
+    "nav": 11334521.3205,
+    "cash": 0.0,
+    "holdings": 11334521.3205,
+    "invested": 10000000.0,
+    "dividends": 0.0,
+    "pnl_abs": 1334521.32,
+    "pnl_pct": 13.345,
+    "nifty_pnl_pct": null
   }
 }

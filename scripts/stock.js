@@ -13,7 +13,8 @@
 
   const curFor = (symbol) => (/\.NS$|\.BO$/i.test(symbol||'')) ? 'INR' : 'USD';
   const symFor = (ccy) => ccy === 'INR' ? '₹' : '$';
-  const fmt    = (n) => Number(n ?? 0).toLocaleString();
+  const fmt    = (n, dp = 0) => Number(n ?? 0).toLocaleString('en-IN', { maximumFractionDigits: dp, minimumFractionDigits: dp });
+  const pctStr = (n) => (n == null ? '—' : `${n >= 0 ? '+' : ''}${Number(n).toFixed(2)}%`);
 
   const jfetch = async (path) => {
     const res = await fetch(`${path}?v=${Date.now()}`, { cache: 'no-store' });
@@ -203,11 +204,24 @@
     const ccy = curFor(symbol);
 
     if (pos) {
+      const s = symFor(ccy);
       $('#buyDate')  && ($('#buyDate').textContent  = pos.buy_date || '');
-      $('#qty')      && ($('#qty').textContent      = fmt(pos.qty));
-      $('#buyPrice') && ($('#buyPrice').textContent = `${symFor(ccy)}${fmt(pos.buy_price_local)} ${ccy}`);
+      $('#qty')      && ($('#qty').textContent      = fmt(pos.qty, 1));
+      $('#buyPrice') && ($('#buyPrice').textContent = `${s}${fmt(pos.buy_price_local, 2)}`);
       if (Number.isFinite(+pos.cost_local)) {
-        $('#cost') && ($('#cost').textContent = `${symFor(ccy)}${fmt(pos.cost_local)} ${ccy}`);
+        $('#cost') && ($('#cost').textContent = `${s}${fmt(pos.cost_local)}`);
+      }
+      if (Number.isFinite(+pos.last_price)) {
+        $('#lastPrice') && ($('#lastPrice').textContent = `${s}${fmt(pos.last_price, 2)}`);
+      }
+      if (Number.isFinite(+pos.market_value_local)) {
+        $('#value') && ($('#value').textContent = `${s}${fmt(pos.market_value_local)}`);
+      }
+      $('#dividends') && ($('#dividends').textContent = pos.dividends_local ? `${s}${fmt(pos.dividends_local)}` : '—');
+      const retEl = $('#return');
+      if (retEl) {
+        retEl.textContent = pctStr(pos.pnl_pct);
+        retEl.className = pos.pnl_pct == null ? '' : (pos.pnl_pct >= 0 ? 'pos' : 'neg');
       }
     }
 
