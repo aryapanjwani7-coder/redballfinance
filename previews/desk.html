@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Red Ball Finance — The Desk (preview)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;900&family=IBM+Plex+Mono:wght@400;500;600;700&family=Bitter:ital,wght@0,400;1,400&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3"></script>
+<style>
+  :root{
+    --bg:#06100c;            /* night pitch */
+    --bg-2:#0a1812;
+    --panel:#0d201740;
+    --line:#1d3a2c;
+    --cream:#eae4d2;
+    --dim:#7f9488;
+    --ball:#ff4133;
+    --ball-glow:#ff4133;
+    --gold:#f2c14e;
+    --green:#33d17a;
+    --red:#ff5d52;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;background:var(--bg);color:var(--cream);
+    font-family:"IBM Plex Mono",monospace;font-size:15px;line-height:1.6;
+    background-image:
+      radial-gradient(120% 80% at 50% -10%, rgba(51,209,122,.10), transparent 55%),
+      radial-gradient(60% 50% at 90% 110%, rgba(242,193,78,.07), transparent 60%),
+      linear-gradient(0deg, var(--bg) 0%, var(--bg-2) 100%);
+    background-attachment:fixed;
+  }
+  /* floodlit pitch perspective + scanlines */
+  body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+    background:
+      repeating-linear-gradient(0deg, transparent 0 3px, rgba(0,0,0,.16) 3px 4px);
+    opacity:.4;mix-blend-mode:overlay}
+  body::after{content:"";position:fixed;left:50%;bottom:-30%;width:60%;height:120%;transform:translateX(-50%);pointer-events:none;z-index:0;
+    background:linear-gradient(180deg, transparent, rgba(51,209,122,.05));
+    clip-path:polygon(38% 0,62% 0,100% 100%,0 100%);border-left:1px solid rgba(234,228,210,.05);border-right:1px solid rgba(234,228,210,.05)}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 26px;position:relative;z-index:1}
+  a{color:inherit;text-decoration:none}
+
+  /* ticker */
+  .ticker{border-bottom:1px solid var(--line);background:#040b08;overflow:hidden;white-space:nowrap;font-size:12px;letter-spacing:.04em}
+  .ticker .run{display:inline-block;padding:9px 0;animation:tick 26s linear infinite}
+  .ticker b{color:var(--cream)}.ticker .u{color:var(--green)}.ticker .d{color:var(--red)}.ticker span{margin:0 26px;color:var(--dim)}
+  @keyframes tick{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+
+  /* nav */
+  .top{display:flex;justify-content:space-between;align-items:center;padding:18px 0;border-bottom:1px solid var(--line)}
+  .brand{display:flex;align-items:center;gap:12px;font-family:"Archivo",sans-serif;font-weight:900;font-size:20px;letter-spacing:-.01em}
+  .ballmark{width:18px;height:18px;border-radius:50%;background:radial-gradient(circle at 34% 30%, #ff7a6f, var(--ball) 60%, #b8281d);box-shadow:0 0 14px rgba(255,65,51,.6);position:relative}
+  .ballmark::after{content:"";position:absolute;inset:2px;border-radius:50%;border-top:1.5px dashed rgba(255,225,210,.8);transform:rotate(-25deg)}
+  .top nav{display:flex;gap:22px;font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--dim)}
+  .top nav a:hover{color:var(--ball)}
+  .status{font-size:11px;letter-spacing:.14em;color:var(--green);text-transform:uppercase}
+  .status .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);margin-right:6px;animation:pulse 1.8s infinite}
+  @keyframes pulse{50%{opacity:.35}}
+
+  .rv{opacity:0;transform:translateY(16px);animation:rise .8s cubic-bezier(.2,.7,.2,1) forwards}
+  @keyframes rise{to{opacity:1;transform:none}}
+  @media (prefers-reduced-motion:reduce){.rv{animation:none;opacity:1;transform:none}}
+
+  /* hero */
+  .hero{padding:60px 0 30px;display:grid;grid-template-columns:1.1fr .9fr;gap:50px;align-items:center}
+  .hero h1{font-family:"Archivo",sans-serif;font-weight:900;font-size:clamp(40px,6.4vw,82px);line-height:.95;letter-spacing:-.03em;margin:0}
+  .hero h1 .em{color:var(--ball);text-shadow:0 0 30px rgba(255,65,51,.4)}
+  .hero p{color:var(--dim);font-size:16px;max-width:42ch;margin:18px 0 0}
+  .quote{font-family:"Bitter",serif;font-style:italic;color:var(--gold);border-left:2px solid var(--gold);padding-left:14px;margin-top:22px;font-size:15px}
+  .navbox{border:1px solid var(--line);background:rgba(10,24,18,.7);backdrop-filter:blur(3px);padding:26px;position:relative;overflow:hidden}
+  .navbox::before{content:"NAV";position:absolute;right:-6px;top:-22px;font-family:"Archivo";font-weight:900;font-size:120px;color:rgba(234,228,210,.03);letter-spacing:-.05em}
+  .navbox .lab{font-size:11px;letter-spacing:.24em;text-transform:uppercase;color:var(--dim)}
+  .navbox .v{font-family:"Archivo",sans-serif;font-weight:900;font-size:clamp(36px,5.5vw,56px);line-height:1;margin:6px 0 4px;color:var(--cream)}
+  .navbox .chg{font-size:18px;color:var(--green);font-weight:600}
+  .navbox hr{border:none;border-top:1px solid var(--line);margin:18px 0}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px 18px}
+  .stat .k{font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--dim)}
+  .stat .n{font-size:18px;font-weight:600;margin-top:2px}
+
+  /* sections */
+  section{padding:46px 0;border-top:1px solid var(--line)}
+  .head{display:flex;align-items:baseline;gap:16px;margin-bottom:22px}
+  .head h2{font-family:"Archivo",sans-serif;font-weight:700;font-size:26px;letter-spacing:.01em;margin:0;text-transform:uppercase}
+  .head .idx{color:var(--ball);font-size:12px;letter-spacing:.2em}
+  .head .ln{flex:1;height:1px;background:var(--line)}
+
+  .panel{border:1px solid var(--line);background:rgba(10,24,18,.55);padding:18px}
+  .legend{display:flex;gap:22px;font-size:11px;letter-spacing:.1em;color:var(--dim);margin-bottom:6px;text-transform:uppercase}
+  .legend i{display:inline-block;width:20px;height:0;border-top:3px solid var(--green);vertical-align:middle;margin-right:6px}
+  .legend i.nf{border-top:2px dashed var(--dim)}
+  .note{font-size:12px;color:var(--dim);margin-top:10px}
+
+  table{width:100%;border-collapse:collapse}
+  thead th{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--dim);text-align:right;padding:10px 12px;border-bottom:1px solid var(--line)}
+  thead th:first-child{text-align:left}
+  tbody td{padding:15px 12px;text-align:right;border-bottom:1px solid rgba(29,58,44,.5);font-variant-numeric:tabular-nums}
+  tbody td:first-child{text-align:left}
+  .sym{font-family:"Archivo",sans-serif;font-weight:700;font-size:17px}
+  .sub{display:block;color:var(--dim);font-size:11px;letter-spacing:.04em}
+  .pill{display:inline-block;border:1px solid var(--line);color:var(--dim);font-size:10px;letter-spacing:.08em;padding:2px 7px;border-radius:2px;margin-left:4px}
+  .up{color:var(--green)}.down{color:var(--red)}
+  .ret{font-family:"Archivo";font-weight:700;font-size:17px}
+  .go{color:var(--ball);font-size:11px;letter-spacing:.14em;text-transform:uppercase}
+  tbody tr:hover{background:rgba(51,209,122,.04)}
+
+  .picks{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .pk{border:1px solid var(--line);background:rgba(10,24,18,.5);padding:20px;transition:.25s}
+  .pk:hover{border-color:var(--ball);transform:translateY(-3px);box-shadow:0 10px 30px rgba(0,0,0,.4)}
+  .pk .t{font-family:"Archivo";font-weight:700;font-size:20px}
+  .pk .m{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);margin:4px 0 12px}
+
+  .about{display:grid;grid-template-columns:.85fr 1.15fr;gap:34px;align-items:start}
+  .about img{width:100%;border:1px solid var(--line);box-shadow:0 0 40px rgba(0,0,0,.5)}
+  .about figcaption{font-size:11px;color:var(--dim);margin-top:8px}
+  .about p{color:#cfc8b6;margin:0 0 1em}
+  .about .name{font-family:"Archivo";font-weight:900;font-size:30px;color:var(--cream);margin-bottom:2px}
+  .about .role{color:var(--gold);font-size:12px;letter-spacing:.16em;text-transform:uppercase;margin-bottom:14px}
+  .method li{list-style:none;border:1px solid var(--line);padding:14px 16px;margin-bottom:10px;background:rgba(10,24,18,.4)}
+  .method b{color:var(--ball);font-size:11px;letter-spacing:.12em;text-transform:uppercase;display:block;margin-bottom:3px}
+  .method ul{padding:0;margin:0}
+  .contact a{color:var(--green);border-bottom:1px solid var(--line)}
+  .disc{font-size:12px;color:var(--dim);border:1px dashed var(--line);padding:12px 16px;margin-top:14px}
+
+  footer{padding:28px 0 56px;text-align:center;color:var(--dim);font-size:11px;letter-spacing:.18em;text-transform:uppercase;border-top:1px solid var(--line)}
+  .pvbanner{position:fixed;bottom:14px;right:14px;background:var(--ball);color:#fff;font-size:10px;letter-spacing:.14em;padding:7px 12px;text-transform:uppercase;z-index:20;box-shadow:0 0 16px rgba(255,65,51,.5)}
+  @media (max-width:820px){.hero,.about{grid-template-columns:1fr}.picks{grid-template-columns:1fr}.navbox::before{display:none}
+    thead{display:none}tbody td{display:flex;justify-content:space-between;border:none;border-bottom:1px solid rgba(29,58,44,.5)}tbody td::before{content:attr(data-l);color:var(--dim);font-size:10px;letter-spacing:.12em;text-transform:uppercase}tbody td:first-child .sym{font-size:20px}}
+</style>
+</head>
+<body>
+<div class="pvbanner">Preview · The Desk</div>
+
+<div class="ticker"><div class="run" id="run"></div></div>
+
+<div class="wrap">
+  <div class="top">
+    <div class="brand"><span class="ballmark"></span> RED BALL FINANCE</div>
+    <nav><a href="#book">The Book</a><a href="#scorecard">Holdings</a><a href="#about">About</a></nav>
+    <div class="status"><span class="dot"></span><span id="mkt">Marked to close</span></div>
+  </div>
+
+  <section class="hero" style="border-top:none">
+    <div class="rv">
+      <h1>See what I hold.<br>And <span class="em">exactly why.</span></h1>
+      <p>A transparent paper portfolio in rupees — every position carries a public thesis and is marked to market daily against the Nifty 50. No tips. No noise. Just the scorecard.</p>
+      <div class="quote">"Investing is Test cricket: striking or defending, you win through commitment, patience, and the long game."</div>
+    </div>
+    <div class="navbox rv" style="animation-delay:.15s">
+      <div class="lab">Net Asset Value · INR</div>
+      <div class="v" id="nav-v">₹—</div>
+      <div class="chg" id="nav-c">—</div>
+      <hr>
+      <div class="grid2">
+        <div class="stat"><div class="k">Invested</div><div class="n" id="s-inv">—</div></div>
+        <div class="stat"><div class="k">Dividends</div><div class="n" id="s-div">—</div></div>
+        <div class="stat"><div class="k">Nifty 50 · same window</div><div class="n" id="s-nf">—</div></div>
+        <div class="stat"><div class="k">Edge vs index</div><div class="n up" id="s-edge">—</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="book">
+    <div class="head"><span class="idx">01</span><h2>The Book</h2><div class="ln"></div></div>
+    <div class="panel rv">
+      <div class="legend"><span><i></i>My portfolio</span><span><i class="nf"></i>Nifty 50</span></div>
+      <canvas id="nav" height="116"></canvas>
+      <p class="note">Rebased to 100 on 14 Aug 2025 — the first trade. Portfolio line includes dividends received.</p>
+    </div>
+  </section>
+
+  <section id="scorecard">
+    <div class="head"><span class="idx">02</span><h2>Holdings</h2><div class="ln"></div></div>
+    <div class="panel">
+      <table>
+        <thead><tr><th>Instrument</th><th>Since</th><th>Qty</th><th>Entry</th><th>Cost</th><th>Mkt value</th><th>Div.</th><th>Return</th><th></th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <div class="head"><span class="idx">03</span><h2>Latest Picks</h2><div class="ln"></div></div>
+    <div class="picks" id="picks"></div>
+  </section>
+
+  <section id="about">
+    <div class="head"><span class="idx">04</span><h2>About</h2><div class="ln"></div></div>
+    <div class="about">
+      <figure style="margin:0" class="rv">
+        <img src="../assets/arya-cricket.jpg" alt="Arya Panjwani batting">
+        <figcaption>Batting for Hong Kong vs Nepal — ICC U19 World Cup Asia Qualifier.</figcaption>
+      </figure>
+      <div>
+        <div class="name">Arya Panjwani</div>
+        <div class="role">Student · Cricketer · Long-term investor</div>
+        <p>Born in India, raised in Hong Kong, now heading to UCLA to read Physics. When I'm not in class you'll usually find me on a cricket field. This site is how I share my paper portfolio, document the reasoning behind each position, and track my progress as I learn.</p>
+        <div class="contact" style="margin:10px 0 22px">
+          <a href="mailto:aryapanjwani7@gmail.com">aryapanjwani7@gmail.com</a> &nbsp;·&nbsp;
+          <a href="https://www.linkedin.com/in/arya-panjwani-6262a321a/" target="_blank" rel="noopener">LinkedIn</a>
+        </div>
+        <div class="method">
+          <ul>
+            <li><b>Paper portfolio</b>No real money moves — built for learning and accountability.</li>
+            <li><b>NAV</b>Holdings marked to market plus dividends received, in rupees, from a ₹1 crore start, benchmarked to the Nifty 50.</li>
+            <li><b>Stock pages</b>Each holding: a rupee price chart, a live position snapshot, and a written report.</li>
+            <li><b>Data</b>Prices, dividends and the Nifty 50 fetched daily after the close; buys live in transactions.json.</li>
+          </ul>
+        </div>
+        <p class="disc">Information on this website does not constitute investment advice. Please do your own research before investing.</p>
+      </div>
+    </div>
+  </section>
+</div>
+
+<footer>© <span id="yr"></span> Red Ball Finance — Floodlights on, play continues after the close</footer>
+
+<script>
+const INR=(n,dp=0)=>'₹'+Number(n||0).toLocaleString('en-IN',{maximumFractionDigits:dp,minimumFractionDigits:dp});
+const P=(n)=>n==null?'—':(n>=0?'+':'')+Number(n).toFixed(2)+'%';
+const jf=p=>fetch(p+'?v='+Date.now(),{cache:'no-store'}).then(r=>r.json());
+const META={'COALINDIA.NS':{name:'Coal India Ltd',slug:'coal-india',tags:['Energy','Dividend','Largecap']},'KIRLOSBROS.NS':{name:'Kirloskar Brothers',slug:'kirloskar-brothers',tags:['Capital Goods','Infra','Exports']}};
+function countUp(el,to,dp,pre){const t=1000,s=performance.now();(function f(n){const k=Math.min(1,(n-s)/t),e=1-Math.pow(1-k,3);el.textContent=(pre||'')+(to*e).toLocaleString('en-IN',{maximumFractionDigits:dp,minimumFractionDigits:dp});if(k<1)requestAnimationFrame(f)})(s)}
+
+(async function(){
+  document.getElementById('yr').textContent=new Date().getFullYear();
+  try{
+    const [sum,pos,nav]=await Promise.all([jf('../data/nav_summary.json'),jf('../data/positions.json'),jf('../data/nav.json')]);
+    const L=sum.latest;
+    countUp(document.getElementById('nav-v'),L.nav,0,'₹');
+    const edge=(L.pnl_pct-(L.nifty_pnl_pct||0));
+    const c=document.getElementById('nav-c');c.textContent=P(L.pnl_pct)+'  ('+INR(L.pnl_abs)+')';c.className='chg '+(L.pnl_pct>=0?'up':'down');c.style.color=L.pnl_pct>=0?'var(--green)':'var(--red)';
+    document.getElementById('s-inv').textContent=INR(L.invested);
+    document.getElementById('s-div').textContent=INR(L.dividends);
+    document.getElementById('s-nf').textContent=P(L.nifty_pnl_pct);
+    const se=document.getElementById('s-edge');se.textContent=(edge>=0?'+':'')+edge.toFixed(2)+' pp';se.className='n '+(edge>=0?'up':'down');
+
+    // ticker
+    const t=pos.map(p=>{const m=META[p.symbol];const cl=p.pnl_pct>=0?'u':'d';return `<span><b>${p.symbol.replace('.NS','')}</b> ${INR(p.market_value_local)} <span class="${cl}">${P(p.pnl_pct)}</span></span>`}).join('');
+    const extra=`<span><b>NAV</b> ${INR(L.nav)} <span class="u">${P(L.pnl_pct)}</span></span><span><b>NIFTY50</b> <span class="d">${P(L.nifty_pnl_pct)}</span></span><span><b>DIVIDENDS</b> ${INR(L.dividends)}</span>`;
+    document.getElementById('run').innerHTML=(t+extra).repeat(2);
+
+    // rows
+    const rows=document.getElementById('rows');
+    pos.forEach(p=>{const m=META[p.symbol]||{name:p.symbol,slug:'',tags:[]};
+      const tr=document.createElement('tr');
+      tr.innerHTML=`<td data-l="Instrument"><span class="sym">${p.symbol.replace('.NS','')}</span><span class="sub">${m.name} ${m.tags.map(x=>'<span class=pill>'+x+'</span>').join('')}</span></td>
+      <td data-l="Since">${p.buy_date}</td>
+      <td data-l="Qty">${Number(p.qty).toLocaleString('en-IN')}</td>
+      <td data-l="Entry">${INR(p.buy_price_local,2)}</td>
+      <td data-l="Cost">${INR(p.cost_local)}</td>
+      <td data-l="Mkt value">${INR(p.market_value_local)}</td>
+      <td data-l="Div">${p.dividends_local?INR(p.dividends_local):'—'}</td>
+      <td data-l="Return"><span class="ret ${p.pnl_pct>=0?'up':'down'}">${P(p.pnl_pct)}</span></td>
+      <td><a class="go" href="../stock.html?slug=${m.slug}">View ›</a></td>`;
+      rows.appendChild(tr);});
+
+    // picks
+    const picks=document.getElementById('picks');
+    [...pos].sort((a,b)=>new Date(b.buy_date)-new Date(a.buy_date)).forEach(p=>{const m=META[p.symbol]||{};
+      const a=document.createElement('a');a.className='pk';a.href=`../stock.html?slug=${m.slug}`;
+      a.innerHTML=`<div class="m">Bought ${p.buy_date} · ${Number(p.qty).toLocaleString('en-IN')} sh</div><div class="t">${m.name}</div><p style="color:var(--dim);margin:8px 0 0">Now ${INR(p.market_value_local)} · <span class="${p.pnl_pct>=0?'up':'down'}">${P(p.pnl_pct)}</span></p>`;
+      picks.appendChild(a);});
+
+    // chart
+    const inc=sum.inception_date,d=nav.filter(r=>r.date>=inc&&r.nav_index!=null),mk=k=>d.map(r=>({x:new Date(r.date),y:r[k]})).filter(p=>Number.isFinite(p.y));
+    new Chart(document.getElementById('nav'),{type:'line',data:{datasets:[
+      {label:'My portfolio',data:mk('nav_index'),borderColor:'#33d17a',backgroundColor:'rgba(51,209,122,.10)',borderWidth:2.4,pointRadius:0,tension:.18,fill:true},
+      {label:'Nifty 50',data:mk('nifty_index'),borderColor:'#7f9488',borderWidth:1.5,borderDash:[5,4],pointRadius:0,tension:.18,fill:false}
+    ]},options:{responsive:true,interaction:{mode:'index',intersect:false},plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ${c.dataset.label}: ${c.parsed.y.toFixed(1)} (${(c.parsed.y-100>=0?'+':'')+(c.parsed.y-100).toFixed(1)}%)`}}},scales:{x:{type:'time',time:{unit:'month'},grid:{color:'rgba(29,58,44,.5)'},ticks:{color:'#7f9488',font:{family:'IBM Plex Mono',size:10}}},y:{grid:{color:'rgba(29,58,44,.5)'},ticks:{color:'#7f9488',font:{family:'IBM Plex Mono',size:10}}}}}});
+  }catch(e){console.error(e);}
+})();
+</script>
+</body>
+</html>

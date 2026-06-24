@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Red Ball Finance — The Almanack (preview)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..700&family=Newsreader:ital,opsz,wght@0,6..72,300..600;1,6..72,400&family=JetBrains+Mono:wght@400..700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3"></script>
+<style>
+  :root{
+    --paper:#fbeadb;            /* FT salmon */
+    --paper-2:#f6e0cf;
+    --ink:#221c17;
+    --ink-soft:#5b4f45;
+    --rule:#cbb4a3;
+    --ball:#b21807;            /* cricket ball red */
+    --ball-2:#8c1206;
+    --seam:#9a7b3f;            /* seam gold */
+    --pos:#0f6b3f;
+    --neg:#b21807;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Newsreader",Georgia,serif;font-size:18px;line-height:1.55;
+    background-image:
+      radial-gradient(circle at 88% 8%, rgba(178,24,7,.06), transparent 38%),
+      radial-gradient(circle at 6% 96%, rgba(154,123,63,.08), transparent 40%),
+      repeating-linear-gradient(0deg, transparent, transparent 27px, rgba(34,28,23,.025) 28px);
+  }
+  .wrap{max-width:1080px;margin:0 auto;padding:0 28px}
+  a{color:inherit}
+  .mono{font-family:"JetBrains Mono",monospace;font-variant-numeric:tabular-nums}
+
+  /* ---------- masthead ---------- */
+  header.mast{padding:30px 0 14px;border-bottom:3px double var(--ink)}
+  .mast-top{display:flex;justify-content:space-between;align-items:baseline;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--ink-soft)}
+  .mast-title{font-family:"Fraunces",serif;font-weight:600;font-size:clamp(46px,9vw,116px);line-height:.92;letter-spacing:-.02em;text-align:center;margin:.18em 0 .12em}
+  .mast-title .ball{display:inline-block;width:.62em;height:.62em;border-radius:50%;background:radial-gradient(circle at 35% 30%, #e6492f, var(--ball) 55%, var(--ball-2));box-shadow:inset -3px -3px 6px rgba(0,0,0,.35);position:relative;vertical-align:.02em;margin:0 .04em}
+  .mast-title .ball::after{content:"";position:absolute;inset:0;border-radius:50%;border-top:2px dashed rgba(255,235,200,.7);transform:rotate(-22deg) scale(.78)}
+  .mast-sub{text-align:center;font-style:italic;font-size:19px;color:var(--ink-soft);max-width:46ch;margin:0 auto 16px}
+
+  /* ---------- reveal ---------- */
+  .rv{opacity:0;transform:translateY(14px);animation:rise .9s cubic-bezier(.2,.7,.2,1) forwards}
+  @keyframes rise{to{opacity:1;transform:none}}
+  @media (prefers-reduced-motion:reduce){.rv{animation:none;opacity:1;transform:none}}
+
+  /* ---------- hero figure ---------- */
+  .lede{display:grid;grid-template-columns:1.15fr .85fr;gap:40px;align-items:center;padding:34px 0;border-bottom:1px solid var(--rule)}
+  .lede h2{font-family:"Fraunces",serif;font-weight:340;font-size:clamp(26px,3.4vw,40px);line-height:1.12;margin:0 0 14px;letter-spacing:-.01em}
+  .lede h2 em{font-style:italic;color:var(--ball)}
+  .drop::first-letter{font-family:"Fraunces",serif;font-weight:600;float:left;font-size:4.1em;line-height:.74;padding:.06em .1em 0 0;color:var(--ball)}
+  .figure{border:1px solid var(--ink);padding:22px 20px;background:linear-gradient(180deg, var(--paper-2), transparent)}
+  .figure .label{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-soft)}
+  .figure .big{font-family:"Fraunces",serif;font-weight:600;font-size:clamp(40px,6vw,64px);line-height:1;margin:.1em 0 .05em}
+  .figure .big.pos{color:var(--pos)}
+  .figure .row{display:flex;justify-content:space-between;border-top:1px dotted var(--rule);padding:7px 0;font-size:15px}
+  .figure .row span:last-child{font-family:"JetBrains Mono",monospace;font-variant-numeric:tabular-nums}
+
+  /* ---------- section heads ---------- */
+  .sec{padding:42px 0;border-bottom:1px solid var(--rule)}
+  .kicker{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.28em;text-transform:uppercase;color:var(--ball);display:flex;align-items:center;gap:10px}
+  .kicker::before,.kicker::after{content:"";height:1px;background:var(--rule);flex:1}
+  .kicker span{flex:0 0 auto}
+  .sec h3{font-family:"Fraunces",serif;font-weight:560;font-size:clamp(28px,4vw,42px);margin:.25em 0 .5em;letter-spacing:-.01em}
+
+  /* ---------- chart ---------- */
+  .chart-card{border:1px solid var(--ink);background:var(--paper-2);padding:18px}
+  .legend{display:flex;gap:24px;font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.06em;margin-bottom:8px;color:var(--ink-soft)}
+  .legend i{display:inline-block;width:22px;height:0;border-top:3px solid var(--ball);vertical-align:middle;margin-right:7px}
+  .legend i.nf{border-top:2px dashed var(--ink-soft)}
+  .note{font-size:13px;color:var(--ink-soft);font-style:italic;margin-top:10px}
+
+  /* ---------- scorecard table ---------- */
+  table.score{width:100%;border-collapse:collapse;margin-top:8px}
+  table.score caption{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.2em;text-transform:uppercase;text-align:left;color:var(--ink-soft);padding-bottom:8px}
+  .score thead th{font-family:"JetBrains Mono",monospace;font-weight:600;font-size:11px;letter-spacing:.12em;text-transform:uppercase;text-align:right;color:var(--ink-soft);border-bottom:2px solid var(--ink);padding:8px 10px}
+  .score thead th:first-child,.score thead th:nth-child(2){text-align:left}
+  .score tbody td{padding:14px 10px;border-bottom:1px solid var(--rule);text-align:right;font-family:"JetBrains Mono",monospace;font-variant-numeric:tabular-nums;font-size:15px}
+  .score tbody td:first-child{text-align:left;font-family:"Fraunces",serif;font-size:21px;font-weight:540}
+  .score tbody td:nth-child(2){text-align:left;font-family:"Newsreader",serif;font-style:italic;color:var(--ink-soft);font-size:14px}
+  .score .nm{display:block;font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.14em;color:var(--ball);font-style:normal}
+  .pos{color:var(--pos)}.neg{color:var(--neg)}
+  .tags{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.08em;color:var(--ink-soft)}
+  .rep{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;border-bottom:1px solid var(--ball);color:var(--ball);text-decoration:none;padding-bottom:2px;white-space:nowrap}
+  .totals td{border-top:2px solid var(--ink);font-weight:700;color:var(--ink)}
+
+  /* ---------- picks ---------- */
+  .picks{display:grid;grid-template-columns:repeat(2,1fr);gap:1px;background:var(--rule);border:1px solid var(--rule)}
+  .pick{background:var(--paper);padding:22px;text-decoration:none;transition:background .25s,transform .25s}
+  .pick:hover{background:var(--paper-2);transform:translateY(-2px)}
+  .pick h4{font-family:"Fraunces",serif;font-weight:560;font-size:24px;margin:.1em 0 .2em}
+  .pick .meta{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.1em;color:var(--ink-soft);text-transform:uppercase}
+  .pick p{margin:.6em 0 0;font-size:16px;color:var(--ink-soft)}
+
+  /* ---------- about ---------- */
+  .about{display:grid;grid-template-columns:.9fr 1.1fr;gap:38px;align-items:start}
+  .about figure{margin:0}
+  .about img{width:100%;border:1px solid var(--ink);filter:saturate(.92) contrast(1.02)}
+  .about figcaption{font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--ink-soft);margin-top:8px;letter-spacing:.05em}
+  .about p{margin:0 0 1em}
+  .pull{font-family:"Fraunces",serif;font-style:italic;font-size:22px;line-height:1.35;border-left:3px solid var(--ball);padding-left:18px;color:var(--ink)}
+  .bullets{list-style:none;padding:0;margin:14px 0 0}
+  .bullets li{padding:10px 0;border-bottom:1px dotted var(--rule);font-size:16px}
+  .bullets b{font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--ball);display:block;margin-bottom:2px}
+  .contact a{color:var(--ball);text-decoration:none;border-bottom:1px solid var(--seam)}
+  .disclaim{font-style:italic;font-size:14px;color:var(--ink-soft);border:1px dashed var(--rule);padding:14px 18px;margin-top:18px}
+
+  footer{padding:30px 0 60px;text-align:center;font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-soft)}
+  .pvbanner{position:fixed;bottom:14px;right:14px;background:var(--ink);color:var(--paper);font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.14em;padding:7px 12px;border-radius:2px;text-transform:uppercase;z-index:20;opacity:.85}
+  @media (max-width:780px){.lede,.about{grid-template-columns:1fr}.picks{grid-template-columns:1fr}.score thead{display:none}.score tbody td{display:flex;justify-content:space-between;text-align:right;border:none;border-bottom:1px dotted var(--rule)}.score tbody td:first-child{font-size:24px}.score tbody td::before{content:attr(data-l);font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft)}.totals{display:block;margin-top:8px}}
+</style>
+</head>
+<body>
+<div class="pvbanner">Preview · The Almanack</div>
+
+<header class="mast">
+  <div class="wrap">
+    <div class="mast-top"><span>No. 1 · Test Innings</span><span id="edition">As of —</span><span>Mumbai · ₹ INR</span></div>
+    <h1 class="mast-title rv">Red B<span class="ball"></span>ll Finance</h1>
+    <p class="mast-sub rv" style="animation-delay:.1s">A transparent paper portfolio, played like a Test match — patience, conviction, and a public record of every shot.</p>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <section class="lede">
+    <div class="rv" style="animation-delay:.15s">
+      <h2>I publish the <em>exact reasoning</em> behind every stock I hold — and mark it to market, in rupees, against the index.</h2>
+      <p class="drop">No tips, no noise. Two convictions on the books so far, each carried with a written thesis and tracked daily after the close. The question this page answers is simple: am I beating the market, or just along for the ride?</p>
+    </div>
+    <aside class="figure rv" style="animation-delay:.25s">
+      <div class="label">Net Asset Value</div>
+      <div class="big mono" id="f-nav">₹—</div>
+      <div class="row"><span>Total return</span><span class="pos" id="f-ret">—</span></div>
+      <div class="row"><span>Invested</span><span id="f-inv">—</span></div>
+      <div class="row"><span>Dividends banked</span><span id="f-div">—</span></div>
+      <div class="row"><span>Nifty 50, same window</span><span id="f-nifty">—</span></div>
+    </aside>
+  </section>
+
+  <section class="sec">
+    <div class="kicker"><span>The Innings So Far</span></div>
+    <h3>Portfolio vs Nifty 50</h3>
+    <div class="chart-card rv">
+      <div class="legend"><span><i></i>My portfolio</span><span><i class="nf"></i>Nifty 50</span></div>
+      <canvas id="nav" height="118"></canvas>
+      <p class="note">Both rebased to 100 on 14 Aug 2025, the day of the first stroke. Portfolio includes dividends received.</p>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="kicker"><span>The Order of Play</span></div>
+    <h3>The Scorecard</h3>
+    <table class="score">
+      <caption>Holdings, marked to the latest close</caption>
+      <thead><tr>
+        <th>Batsman</th><th>At crease since</th><th>Qty</th><th>In at</th><th>Cost</th><th>Now</th><th>Extras (div.)</th><th>Return</th><th></th>
+      </tr></thead>
+      <tbody id="rows"></tbody>
+      <tfoot><tr class="totals" id="totrow"></tr></tfoot>
+    </table>
+  </section>
+
+  <section class="sec">
+    <div class="kicker"><span>Most Recent Strokes</span></div>
+    <h3>Latest Picks</h3>
+    <div class="picks" id="picks"></div>
+  </section>
+
+  <section class="sec">
+    <div class="kicker"><span>About the Batsman</span></div>
+    <h3>Arya Panjwani</h3>
+    <div class="about">
+      <figure class="rv">
+        <img src="../assets/arya-cricket.jpg" alt="Arya Panjwani batting" />
+        <figcaption>Batting for Hong Kong vs Nepal — ICC U19 World Cup Asia Qualifier.</figcaption>
+      </figure>
+      <div>
+        <p>Student, cricketer, and aspiring long-term investor. Born in India, raised in Hong Kong, and now heading to UCLA to read Physics. When I'm not in class you'll usually find me on a cricket field.</p>
+        <p class="pull">I named it Red Ball Finance because investing is like batting in Test cricket: whether striking or defending, success comes from commitment, patience, and playing the long game.</p>
+        <p style="margin-top:1em">This site is how I share my paper portfolio, document the reasoning behind each position, and track my progress as I learn.</p>
+        <div class="contact" style="margin-top:14px">
+          <b style="font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.1em;color:var(--ball)">CORRESPONDENCE</b><br>
+          <a href="mailto:aryapanjwani7@gmail.com">aryapanjwani7@gmail.com</a> ·
+          <a href="https://www.linkedin.com/in/arya-panjwani-6262a321a/" target="_blank" rel="noopener">LinkedIn</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="kicker"><span>How the Book is Kept</span></div>
+    <h3>The Method</h3>
+    <ul class="bullets">
+      <li><b>Paper portfolio</b> No real money is moved — it's built for learning and accountability.</li>
+      <li><b>Net Asset Value</b> Total value in rupees: marked-to-market holdings plus dividends received, starting from ₹1 crore and benchmarked against the Nifty 50.</li>
+      <li><b>Stock pages</b> Each holding has a rupee price chart, a live position snapshot, and a written report.</li>
+      <li><b>Data</b> Prices, dividends and the Nifty 50 are fetched daily after the close; the buys live in <span class="mono">transactions.json</span>.</li>
+    </ul>
+    <p class="disclaim">Information on this website does not constitute investment advice. Please do your own research before investing.</p>
+  </section>
+
+</div>
+
+<footer><div class="wrap">© <span id="yr"></span> Red Ball Finance · Drawn stumps · Play resumes after the next close</div></footer>
+
+<script>
+const INR=(n,dp=0)=>'₹'+Number(n||0).toLocaleString('en-IN',{maximumFractionDigits:dp,minimumFractionDigits:dp});
+const P=(n)=>n==null?'—':(n>=0?'+':'')+Number(n).toFixed(2)+'%';
+const jf=p=>fetch(p+'?v='+Date.now(),{cache:'no-store'}).then(r=>r.json());
+const META={'COALINDIA.NS':{name:'Coal India Ltd',slug:'coal-india',tags:'Energy · Dividend · Largecap'},'KIRLOSBROS.NS':{name:'Kirloskar Brothers',slug:'kirloskar-brothers',tags:'Capital Goods · Infra · Exports'}};
+function countUp(el,to,dp,pre,suf){const t=900,s=performance.now();function f(n){const k=Math.min(1,(n-s)/t),e=1-Math.pow(1-k,3),v=to*e;el.textContent=(pre||'')+v.toLocaleString('en-IN',{maximumFractionDigits:dp,minimumFractionDigits:dp})+(suf||'');if(k<1)requestAnimationFrame(f)}requestAnimationFrame(f)}
+
+(async function(){
+  document.getElementById('yr').textContent=new Date().getFullYear();
+  try{
+    const [sum,pos,nav]=await Promise.all([jf('../data/nav_summary.json'),jf('../data/positions.json'),jf('../data/nav.json')]);
+    const L=sum.latest;
+    document.getElementById('edition').textContent='As of '+L.date;
+    countUp(document.getElementById('f-nav'),L.nav,0,'₹','');
+    const ret=document.getElementById('f-ret');setTimeout(()=>{ret.textContent=P(L.pnl_pct)},120);
+    document.getElementById('f-inv').textContent=INR(L.invested);
+    document.getElementById('f-div').textContent=INR(L.dividends);
+    document.getElementById('f-nifty').textContent=P(L.nifty_pnl_pct);
+
+    // scorecard
+    const rows=document.getElementById('rows');let tc=0,tv=0,td=0;
+    pos.forEach(p=>{const m=META[p.symbol]||{name:p.symbol,slug:'',tags:''};tc+=p.cost_local;tv+=p.market_value_local;td+=p.dividends_local;
+      const tr=document.createElement('tr');
+      tr.innerHTML=`<td data-l="Stock">${m.name}<span class="nm">${p.symbol.replace('.NS','')}</span></td>
+      <td data-l="Since">${p.buy_date}</td>
+      <td data-l="Qty">${Number(p.qty).toLocaleString('en-IN')}</td>
+      <td data-l="In at">${INR(p.buy_price_local,2)}</td>
+      <td data-l="Cost">${INR(p.cost_local)}</td>
+      <td data-l="Now">${INR(p.market_value_local)}</td>
+      <td data-l="Div">${p.dividends_local?INR(p.dividends_local):'—'}</td>
+      <td data-l="Return" class="${p.pnl_pct>=0?'pos':'neg'}">${P(p.pnl_pct)}</td>
+      <td><a class="rep" href="../stock.html?slug=${m.slug}">Report ›</a></td>`;
+      rows.appendChild(tr);});
+    const tot=((tv+td-tc)/tc*100);
+    document.getElementById('totrow').innerHTML=`<td>Team total</td><td></td><td></td><td></td><td>${INR(tc)}</td><td>${INR(tv)}</td><td>${INR(td)}</td><td class="${tot>=0?'pos':'neg'}">${P(tot)}</td><td></td>`;
+
+    // picks
+    const picks=document.getElementById('picks');
+    [...pos].sort((a,b)=>new Date(b.buy_date)-new Date(a.buy_date)).forEach(p=>{const m=META[p.symbol]||{};
+      const a=document.createElement('a');a.className='pick';a.href=`../stock.html?slug=${m.slug}`;
+      a.innerHTML=`<div class="meta">Bought ${p.buy_date} · ${Number(p.qty).toLocaleString('en-IN')} shares</div><h4>${m.name}</h4><p>Now ${INR(p.market_value_local)} · <span class="${p.pnl_pct>=0?'pos':'neg'}">${P(p.pnl_pct)}</span></p>`;
+      picks.appendChild(a);});
+
+    // chart
+    const inc=sum.inception_date;
+    const d=nav.filter(r=>r.date>=inc&&r.nav_index!=null);
+    const mk=k=>d.map(r=>({x:new Date(r.date),y:r[k]})).filter(p=>Number.isFinite(p.y));
+    new Chart(document.getElementById('nav'),{type:'line',data:{datasets:[
+      {label:'My portfolio',data:mk('nav_index'),borderColor:'#b21807',backgroundColor:'rgba(178,24,7,.08)',borderWidth:2.4,pointRadius:0,tension:.18,fill:true},
+      {label:'Nifty 50',data:mk('nifty_index'),borderColor:'#5b4f45',borderWidth:1.5,borderDash:[5,4],pointRadius:0,tension:.18,fill:false}
+    ]},options:{responsive:true,interaction:{mode:'index',intersect:false},plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ${c.dataset.label}: ${c.parsed.y.toFixed(1)} (${(c.parsed.y-100>=0?'+':'')+(c.parsed.y-100).toFixed(1)}%)`}}},scales:{x:{type:'time',time:{unit:'month'},grid:{display:false},ticks:{color:'#5b4f45',font:{family:'JetBrains Mono',size:10}}},y:{grid:{color:'rgba(34,28,23,.08)'},ticks:{color:'#5b4f45',font:{family:'JetBrains Mono',size:10}}}}}});
+  }catch(e){console.error(e);}
+})();
+</script>
+</body>
+</html>

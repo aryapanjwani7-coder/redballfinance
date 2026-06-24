@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Red Ball Finance — The Zine (preview)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=DM+Mono:wght@400;500&family=Fraunces:ital,opsz,wght@1,9..144,500..700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3"></script>
+<style>
+  :root{
+    --paper:#f3eede;
+    --ink:#141019;
+    --red:#f5402c;       /* riso fluoro red */
+    --blue:#1f37d6;      /* riso blue */
+    --yellow:#ffd23f;
+    --green:#1f9e57;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:"DM Mono",monospace;font-size:15px;line-height:1.55;
+    background-image:radial-gradient(var(--ink) .8px, transparent .8px);background-size:7px 7px;background-position:0 0}
+  .sheet{background:var(--paper);box-shadow:inset 0 0 0 100vmax rgba(243,238,222,.86)}
+  .wrap{max-width:1120px;margin:0 auto;padding:0 24px;position:relative}
+  a{color:inherit;text-decoration:none}
+  .mono{font-family:"DM Mono",monospace}
+
+  .rv{opacity:0;transform:translateY(20px);animation:rise .7s cubic-bezier(.2,.8,.2,1) forwards}
+  @keyframes rise{to{opacity:1;transform:none}}
+  @media (prefers-reduced-motion:reduce){.rv{animation:none;opacity:1;transform:none}}
+
+  /* marquee */
+  .strip{background:var(--ink);color:var(--paper);border-bottom:4px solid var(--ink);overflow:hidden;white-space:nowrap}
+  .strip .run{display:inline-block;padding:8px 0;font-size:13px;letter-spacing:.05em;animation:scroll 22s linear infinite}
+  .strip b{color:var(--yellow)}.strip .u{color:#67e39b}.strip .d{color:#ff8a7a}.strip span{margin:0 22px}
+  @keyframes scroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+
+  /* top */
+  .top{display:flex;justify-content:space-between;align-items:center;padding:16px 0}
+  .logo{font-family:"Anton",sans-serif;font-size:26px;letter-spacing:.02em;text-transform:uppercase}
+  .logo .o{color:var(--red)}
+  .top nav{display:flex;gap:6px}
+  .top nav a{border:2px solid var(--ink);padding:5px 12px;font-size:12px;text-transform:uppercase;letter-spacing:.08em;background:var(--paper);transition:.15s}
+  .top nav a:hover{background:var(--red);color:#fff;transform:translate(-2px,-2px);box-shadow:3px 3px 0 var(--ink)}
+
+  /* hero */
+  .hero{padding:24px 0 12px;position:relative}
+  .hero h1{font-family:"Anton",sans-serif;font-weight:400;font-size:clamp(58px,13vw,168px);line-height:.84;letter-spacing:.005em;text-transform:uppercase;margin:0}
+  .hero h1 .l1{color:var(--ink)}
+  .hero h1 .l2{color:var(--red);-webkit-text-stroke:2px var(--ink)}
+  .hero h1 .l3{color:var(--blue)}
+  .hero .sub{display:flex;justify-content:space-between;flex-wrap:wrap;gap:18px;margin-top:18px;border-top:4px solid var(--ink);border-bottom:4px solid var(--ink);padding:12px 0}
+  .hero .sub p{max-width:48ch;margin:0;font-size:15px}
+  .stamp{position:absolute;right:0;top:6px;width:118px;height:118px;border-radius:50%;background:radial-gradient(circle at 36% 32%,#ff7a68,var(--red) 62%,#c32a1a);box-shadow:5px 5px 0 var(--ink);display:grid;place-items:center;transform:rotate(12deg);animation:spin 1s ease-out}
+  @keyframes spin{from{transform:rotate(-40deg) scale(.6);opacity:0}to{transform:rotate(12deg) scale(1);opacity:1}}
+  .stamp span{font-family:"Anton";color:#fff;font-size:13px;letter-spacing:.06em;text-align:center;line-height:1;text-transform:uppercase;text-shadow:0 1px 0 rgba(0,0,0,.3)}
+  .stamp::before{content:"";position:absolute;inset:9px;border-radius:50%;border-top:2px dashed rgba(255,235,225,.85);transform:rotate(-20deg)}
+
+  /* big stat band */
+  .band{display:grid;grid-template-columns:1.3fr 1fr 1fr 1fr;gap:0;border:4px solid var(--ink);margin:22px 0 0;background:var(--ink)}
+  .band>div{background:var(--paper);padding:18px 18px}
+  .band>div+div{border-left:4px solid var(--ink)}
+  .band .k{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#6b6478}
+  .band .big{font-family:"Anton",sans-serif;font-size:clamp(30px,4.2vw,52px);line-height:.95;margin-top:4px}
+  .band .nav{background:var(--yellow)}
+  .band .ret .big{color:var(--green)}
+
+  /* sections */
+  section{padding:44px 0}
+  .h2{display:inline-block;font-family:"Anton",sans-serif;font-size:clamp(30px,5vw,52px);text-transform:uppercase;letter-spacing:.01em;margin:0 0 4px;background:var(--blue);color:var(--paper);padding:2px 16px;transform:rotate(-1deg);box-shadow:5px 5px 0 var(--ink)}
+  .h2.r{background:var(--red)}.h2.k{background:var(--ink)}
+  .subline{font-size:13px;color:#6b6478;margin:14px 0 22px;text-transform:uppercase;letter-spacing:.06em}
+
+  .chart{border:4px solid var(--ink);background:var(--paper);padding:18px;box-shadow:8px 8px 0 var(--ink)}
+  .legend{display:flex;gap:20px;font-size:12px;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px}
+  .legend i{display:inline-block;width:22px;height:0;border-top:4px solid var(--red);vertical-align:middle;margin-right:6px}
+  .legend i.nf{border-top:3px dashed var(--blue)}
+  .note{font-size:12px;color:#6b6478;margin-top:10px}
+
+  /* table as cards */
+  .cards{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+  .card{border:4px solid var(--ink);background:var(--paper);box-shadow:8px 8px 0 var(--ink);overflow:hidden;transition:.18s}
+  .card:hover{transform:translate(-3px,-3px);box-shadow:11px 11px 0 var(--red)}
+  .card .ch{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:4px solid var(--ink)}
+  .card .ch .nm{font-family:"Anton";font-size:30px;text-transform:uppercase;line-height:1}
+  .card .ch .nm small{display:block;font-family:"DM Mono";font-size:11px;letter-spacing:.06em;color:#6b6478;text-transform:none;margin-top:3px}
+  .card .ret{font-family:"Anton";font-size:34px}
+  .ret.up{color:var(--green)}.ret.down{color:var(--red)}
+  .card .grid{display:grid;grid-template-columns:1fr 1fr;gap:0;border-top:0}
+  .card .grid div{padding:11px 18px;border-top:2px dotted #c9c2ae}
+  .card .grid div:nth-child(odd){border-right:2px dotted #c9c2ae}
+  .card .grid .k{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#6b6478}
+  .card .grid .v{font-size:16px;margin-top:2px}
+  .card .tags{display:flex;gap:6px;flex-wrap:wrap;padding:12px 18px;background:var(--ink)}
+  .card .tags span{color:var(--paper);font-size:10px;letter-spacing:.08em;text-transform:uppercase;border:1px solid var(--paper);padding:2px 7px}
+  .card .foot{padding:12px 18px;display:flex;justify-content:space-between;align-items:center}
+  .card .foot a{font-family:"Anton";text-transform:uppercase;font-size:15px;letter-spacing:.04em;color:var(--red)}
+  .card .foot a:hover{text-decoration:underline}
+
+  /* about */
+  .about{display:grid;grid-template-columns:1fr 1.2fr;gap:0;border:4px solid var(--ink);box-shadow:8px 8px 0 var(--ink)}
+  .about .pic{border-right:4px solid var(--ink);background:var(--blue);padding:18px}
+  .about .pic img{width:100%;display:block;border:3px solid var(--ink)}
+  .about .pic figcaption{color:var(--paper);font-size:11px;margin-top:10px;letter-spacing:.04em}
+  .about .bio{padding:24px;background:var(--paper)}
+  .about .bio .nm{font-family:"Anton";font-size:38px;text-transform:uppercase;line-height:.9}
+  .about .bio .role{color:var(--red);font-size:12px;letter-spacing:.14em;text-transform:uppercase;margin:6px 0 14px}
+  .about .bio p{margin:0 0 1em}
+  .quote{font-family:"Fraunces",serif;font-style:italic;font-size:21px;line-height:1.3;background:var(--yellow);padding:12px 16px;border:3px solid var(--ink);box-shadow:4px 4px 0 var(--ink);margin:8px 0}
+  .contact a{color:var(--blue);border-bottom:2px solid var(--blue)}
+
+  .method{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:22px}
+  .method li{list-style:none;border:3px solid var(--ink);padding:14px 16px;background:var(--paper);box-shadow:4px 4px 0 var(--ink)}
+  .method b{display:block;font-family:"Anton";text-transform:uppercase;font-size:16px;color:var(--blue);margin-bottom:4px;letter-spacing:.03em}
+  .method ul{padding:0;margin:0;display:contents}
+  .disc{border:3px dashed var(--ink);padding:14px 18px;margin-top:20px;font-size:13px;background:var(--paper)}
+
+  footer{border-top:4px solid var(--ink);padding:24px 0 60px;text-align:center;font-family:"Anton";text-transform:uppercase;letter-spacing:.1em;font-size:14px}
+  .pvbanner{position:fixed;bottom:14px;right:14px;background:var(--ink);color:var(--yellow);font-family:"Anton";font-size:12px;letter-spacing:.1em;padding:8px 14px;text-transform:uppercase;z-index:20;box-shadow:4px 4px 0 var(--red)}
+  @media (max-width:820px){.band{grid-template-columns:1fr 1fr}.band>div:nth-child(3){border-left:none;border-top:4px solid var(--ink)}.band>div:nth-child(4){border-top:4px solid var(--ink)}.cards,.method,.about{grid-template-columns:1fr}.about .pic{border-right:none;border-bottom:4px solid var(--ink)}.stamp{width:84px;height:84px}}
+</style>
+</head>
+<body>
+<div class="pvbanner">Preview · The Zine</div>
+<div class="strip"><div class="run" id="run"></div></div>
+
+<div class="wrap">
+  <div class="top">
+    <div class="logo">RED B<span class="o">●</span>LL FINANCE</div>
+    <nav><a href="#chart">Chart</a><a href="#holds">Holdings</a><a href="#about">About</a></nav>
+  </div>
+
+  <section class="hero">
+    <div class="stamp"><span>Paper<br>Portfolio</span></div>
+    <h1 class="rv"><span class="l1">STOCKS</span> <span class="l2">I HOLD,</span><br><span class="l3">& WHY.</span></h1>
+    <div class="sub rv" style="animation-delay:.1s">
+      <p>A transparent paper portfolio in rupees. Every position carries a public thesis and is marked to market daily against the Nifty 50. No tips — just the receipts.</p>
+      <p class="mono" style="text-align:right;color:#6b6478">EST. 2025 · MUMBAI<br>BENCHMARK: NIFTY 50<br>CURRENCY: ₹ INR</p>
+    </div>
+
+    <div class="band rv" style="animation-delay:.18s">
+      <div class="nav"><div class="k">Net Asset Value</div><div class="big" id="b-nav">₹—</div></div>
+      <div class="ret"><div class="k">Total Return</div><div class="big" id="b-ret">—</div></div>
+      <div><div class="k">Dividends</div><div class="big" id="b-div">—</div></div>
+      <div><div class="k">Beat Nifty by</div><div class="big" id="b-edge">—</div></div>
+    </div>
+  </section>
+
+  <section id="chart">
+    <h2 class="h2 r">The Innings</h2>
+    <div class="subline">Portfolio vs Nifty 50 — rebased to 100 on 14 Aug 2025</div>
+    <div class="chart rv">
+      <div class="legend"><span><i></i>My portfolio</span><span><i class="nf"></i>Nifty 50</span></div>
+      <canvas id="nav" height="116"></canvas>
+      <p class="note">Portfolio line includes dividends received. Updates daily after the close.</p>
+    </div>
+  </section>
+
+  <section id="holds">
+    <h2 class="h2">The Holdings</h2>
+    <div class="subline">Two convictions on the books · marked to the latest close</div>
+    <div class="cards" id="cards"></div>
+  </section>
+
+  <section id="about">
+    <h2 class="h2 k">The Batsman</h2>
+    <div class="subline">Who's keeping this scorecard</div>
+    <div class="about rv">
+      <figure class="pic" style="margin:0">
+        <img src="../assets/arya-cricket.jpg" alt="Arya Panjwani batting">
+        <figcaption>Batting for Hong Kong vs Nepal — ICC U19 World Cup Asia Qualifier.</figcaption>
+      </figure>
+      <div class="bio">
+        <div class="nm">Arya Panjwani</div>
+        <div class="role">Student · Cricketer · Long-term Investor</div>
+        <p>Born in India, raised in Hong Kong, now heading to UCLA to read Physics. When I'm not in class you'll find me on a cricket field.</p>
+        <div class="quote">"Investing is Test cricket — striking or defending, you win through commitment, patience, and the long game. That's why it's Red Ball Finance."</div>
+        <p>This site is how I share my paper portfolio, document the reasoning behind each position, and track my progress as I learn.</p>
+        <div class="contact"><a href="mailto:aryapanjwani7@gmail.com">aryapanjwani7@gmail.com</a> · <a href="https://www.linkedin.com/in/arya-panjwani-6262a321a/" target="_blank" rel="noopener">LinkedIn</a></div>
+      </div>
+    </div>
+
+    <ul class="method">
+      <li><b>Paper Portfolio</b>No real money moves. Built for learning and accountability.</li>
+      <li><b>The NAV</b>Holdings marked to market plus dividends, in rupees, from a ₹1 crore start, vs the Nifty 50.</li>
+      <li><b>Stock Pages</b>Each holding: a rupee price chart, a live position snapshot, and a written report.</li>
+      <li><b>The Data</b>Prices, dividends and the Nifty 50 fetched daily after the close.</li>
+    </ul>
+    <div class="disc">⚠ Information on this website does not constitute investment advice. Please do your own research before investing.</div>
+  </section>
+</div>
+
+<footer>© <span id="yr"></span> Red Ball Finance — Play resumes after the next close</footer>
+
+<script>
+const INR=(n,dp=0)=>'₹'+Number(n||0).toLocaleString('en-IN',{maximumFractionDigits:dp,minimumFractionDigits:dp});
+const P=(n)=>n==null?'—':(n>=0?'+':'')+Number(n).toFixed(2)+'%';
+const jf=p=>fetch(p+'?v='+Date.now(),{cache:'no-store'}).then(r=>r.json());
+const META={'COALINDIA.NS':{name:'Coal India',slug:'coal-india',tags:['Energy','Dividend','Largecap']},'KIRLOSBROS.NS':{name:'Kirloskar Bros',slug:'kirloskar-brothers',tags:['Capital Goods','Infra','Exports']}};
+function countUp(el,to,dp,pre,suf){const t=900,s=performance.now();(function f(n){const k=Math.min(1,(n-s)/t),e=1-Math.pow(1-k,3);el.textContent=(pre||'')+(to*e).toLocaleString('en-IN',{maximumFractionDigits:dp,minimumFractionDigits:dp})+(suf||'');if(k<1)requestAnimationFrame(f)})(s)}
+
+(async function(){
+  document.getElementById('yr').textContent=new Date().getFullYear();
+  try{
+    const [sum,pos,nav]=await Promise.all([jf('../data/nav_summary.json'),jf('../data/positions.json'),jf('../data/nav.json')]);
+    const L=sum.latest,edge=L.pnl_pct-(L.nifty_pnl_pct||0);
+    countUp(document.getElementById('b-nav'),L.nav,0,'₹');
+    setTimeout(()=>document.getElementById('b-ret').textContent=P(L.pnl_pct),100);
+    document.getElementById('b-div').textContent=INR(L.dividends);
+    document.getElementById('b-edge').textContent='+'+edge.toFixed(1)+'pp';
+
+    const t=pos.map(p=>`<span><b>${p.symbol.replace('.NS','')}</b> ${INR(p.market_value_local)} <span class="${p.pnl_pct>=0?'u':'d'}">${P(p.pnl_pct)}</span></span>`).join('')+`<span><b>NAV</b> ${INR(L.nav)}</span><span><b>NIFTY50</b> <span class="d">${P(L.nifty_pnl_pct)}</span></span><span>★ PAPER PORTFOLIO ★</span>`;
+    document.getElementById('run').innerHTML=t.repeat(2);
+
+    const cards=document.getElementById('cards');
+    pos.forEach(p=>{const m=META[p.symbol]||{name:p.symbol,slug:'',tags:[]};
+      const el=document.createElement('div');el.className='card';
+      el.innerHTML=`<div class="ch"><div class="nm">${m.name}<small>${p.symbol.replace('.NS','')} · since ${p.buy_date}</small></div><div class="ret ${p.pnl_pct>=0?'up':'down'}">${P(p.pnl_pct)}</div></div>
+      <div class="grid">
+        <div><div class="k">Qty</div><div class="v">${Number(p.qty).toLocaleString('en-IN')}</div></div>
+        <div><div class="k">In at</div><div class="v">${INR(p.buy_price_local,2)}</div></div>
+        <div><div class="k">Cost</div><div class="v">${INR(p.cost_local)}</div></div>
+        <div><div class="k">Value now</div><div class="v">${INR(p.market_value_local)}</div></div>
+        <div><div class="k">Dividends</div><div class="v">${p.dividends_local?INR(p.dividends_local):'—'}</div></div>
+        <div><div class="k">Gain (₹)</div><div class="v">${INR(p.pnl_local)}</div></div>
+      </div>
+      <div class="tags">${m.tags.map(x=>'<span>'+x+'</span>').join('')}</div>
+      <div class="foot"><span class="mono" style="color:#6b6478">Read the thesis</span><a href="../stock.html?slug=${m.slug}">Report →</a></div>`;
+      cards.appendChild(el);});
+
+    const inc=sum.inception_date,d=nav.filter(r=>r.date>=inc&&r.nav_index!=null),mk=k=>d.map(r=>({x:new Date(r.date),y:r[k]})).filter(p=>Number.isFinite(p.y));
+    new Chart(document.getElementById('nav'),{type:'line',data:{datasets:[
+      {label:'My portfolio',data:mk('nav_index'),borderColor:'#f5402c',backgroundColor:'rgba(245,64,44,.08)',borderWidth:3,pointRadius:0,tension:.16,fill:true},
+      {label:'Nifty 50',data:mk('nifty_index'),borderColor:'#1f37d6',borderWidth:2,borderDash:[6,4],pointRadius:0,tension:.16,fill:false}
+    ]},options:{responsive:true,interaction:{mode:'index',intersect:false},plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ${c.dataset.label}: ${c.parsed.y.toFixed(1)} (${(c.parsed.y-100>=0?'+':'')+(c.parsed.y-100).toFixed(1)}%)`}}},scales:{x:{type:'time',time:{unit:'month'},grid:{display:false},ticks:{color:'#6b6478',font:{family:'DM Mono',size:10}}},y:{grid:{color:'rgba(20,16,25,.08)'},ticks:{color:'#6b6478',font:{family:'DM Mono',size:10}}}}}});
+  }catch(e){console.error(e);}
+})();
+</script>
+</body>
+</html>

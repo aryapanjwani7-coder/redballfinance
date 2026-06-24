@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Red Ball Finance — Design Previews</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=DM+Mono&family=Fraunces:opsz,wght@9..144,400..700&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;background:#11100e;color:#f3eede;font-family:"DM Mono",monospace;min-height:100vh;
+    background-image:radial-gradient(circle at 50% 0%, #1c1a16, #0c0b09);padding:60px 24px}
+  .wrap{max-width:1000px;margin:0 auto}
+  h1{font-family:"Anton",sans-serif;font-size:clamp(40px,8vw,80px);text-transform:uppercase;letter-spacing:.01em;margin:0;line-height:.9}
+  h1 .o{color:#f5402c}
+  .lede{color:#8c857a;max-width:60ch;margin:18px 0 44px;font-size:15px;line-height:1.6}
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:22px}
+  .card{display:block;border:1px solid #2a2823;border-radius:10px;overflow:hidden;text-decoration:none;color:inherit;background:#16140f;transition:.2s}
+  .card:hover{transform:translateY(-5px);border-color:#f5402c;box-shadow:0 18px 50px rgba(0,0,0,.5)}
+  .swatch{height:120px;display:grid;place-items:center;font-family:"Anton";font-size:30px;text-transform:uppercase;position:relative;overflow:hidden}
+  .s1{background:#fbeadb;color:#b21807}
+  .s2{background:#06100c;color:#33d17a;text-shadow:0 0 20px rgba(51,209,122,.5)}
+  .s3{background:#f3eede;color:#1f37d6;background-image:radial-gradient(#141019 .8px,transparent .8px);background-size:7px 7px}
+  .body{padding:18px 20px}
+  .body h2{margin:0 0 6px;font-family:"Fraunces",serif;font-size:22px}
+  .body p{margin:0;color:#8c857a;font-size:13px;line-height:1.55}
+  .tag{display:inline-block;margin-top:12px;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#f5402c}
+  .foot{margin-top:40px;color:#5c574e;font-size:12px;line-height:1.7}
+  @media(max-width:760px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Pick a l<span class="o">●</span>ok.</h1>
+  <p class="lede">Three full redesigns of Red Ball Finance, each pulling your real live data (NAV, holdings, dividends, Nifty 50). Your current site is untouched. Open each, see which feels right, and tell me the one to build out across every page.</p>
+  <div class="grid">
+    <a class="card" href="almanack.html">
+      <div class="swatch s1">The Almanack</div>
+      <div class="body"><h2>The Almanack</h2><p>Editorial / Financial-Times salmon paper meets a Wisden cricket almanack. Serif display, a batting-scorecard table, ink rules. Calm, classic, light.</p><span class="tag">Light · Editorial</span></div>
+    </a>
+    <a class="card" href="desk.html">
+      <div class="swatch s2">The Desk</div>
+      <div class="body"><h2>The Desk</h2><p>A trading terminal under cricket floodlights. Deep night-pitch dark, phosphor mono type, a live ticker tape and count-up numbers. Dense, serious, alive.</p><span class="tag">Dark · Terminal</span></div>
+    </a>
+    <a class="card" href="zine.html">
+      <div class="swatch s3">The Zine</div>
+      <div class="body"><h2>The Zine</h2><p>Risograph / brutalist print zine. Halftone paper, fluoro red + electric blue, huge condensed type, offset shadows and a spinning ball stamp. Loud and full of personality.</p><span class="tag">Light · Brutalist</span></div>
+    </a>
+  </div>
+  <p class="foot">Each preview includes everything from the current site: NAV-vs-Nifty chart, snapshot stats, the full holdings table, latest picks, the About bio + cricket photo, "how it works", contact, and the disclaimer. Report links point to your existing stock pages.</p>
+</div>
+</body>
+</html>
