@@ -61,19 +61,40 @@ def http_get(url, tries=4, base_sleep=2.0):
     raise last
 
 
-# ---------- source 1: Yahoo ----------
+# ---------- source 1: Yahoo (direct, then via r.jina.ai proxy) ----------
+def _yahoo_path(symbol):
+    rng = "5y" if YEARS_BACK >= 5 else ("2y" if YEARS_BACK >= 2 else "1y")
+    return (f"finance.yahoo.com/v8/finance/chart/{quote(symbol)}"
+            f"?range={rng}&interval=1d&events=div")
+
+
+def _extract_chart_json(txt):
+    i = txt.find('{"chart"')
+    if i < 0:
+        i = txt.find('{')
+    return json.loads(txt[i:]) if i >= 0 else None
+
+
 def yahoo_chart(symbol):
-    p2 = int(time.time())
-    p1 = p2 - int((YEARS_BACK * 365 + 45) * 86400)
+    path = _yahoo_path(symbol)
+    # 1) direct
     for host in ("query1", "query2"):
-        url = (f"https://{host}.finance.yahoo.com/v8/finance/chart/{quote(symbol)}"
-               f"?period1={p1}&period2={p2}&interval=1d&events=div")
         try:
-            js = json.loads(http_get(url))
+            js = json.loads(http_get(f"https://{host}.{path}", tries=2))
             if js.get("chart", {}).get("result"):
+                print(f"[ok] yahoo direct {symbol}")
                 return js
         except Exception as e:
             print(f"[warn] yahoo {host} {symbol}: {e}")
+    # 2) via r.jina.ai proxy (works when the runner IP is rate-limited)
+    for host in ("query1", "query2"):
+        try:
+            js = _extract_chart_json(http_get(f"https://r.jina.ai/https://{host}.{path}", tries=2))
+            if js and js.get("chart", {}).get("result"):
+                print(f"[ok] yahoo via proxy {symbol}")
+                return js
+        except Exception as e:
+            print(f"[warn] yahoo proxy {host} {symbol}: {e}")
     return None
 
 

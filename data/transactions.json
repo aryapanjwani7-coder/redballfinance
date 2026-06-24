@@ -3,12 +3,12 @@
     "symbol": "KIRLOSBROS.NS",
     "date": "2025-08-14",
     "price_local": 1887.40,
-    "amount_inr": 5000000
+    "qty": 2649
   },
   {
     "symbol": "COALINDIA.NS",
     "date": "2025-08-26",
     "price_local": 372.45,
-    "amount_inr": 5000000
+    "qty": 13425
   }
 ]
