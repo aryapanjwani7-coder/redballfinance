@@ -53,8 +53,8 @@
       const datasets = [{
         label: 'My portfolio',
         data: navPts,
-        borderColor: '#e23636',
-        backgroundColor: 'rgba(226,54,54,.08)',
+        borderColor: '#22c55e',
+        backgroundColor: 'rgba(34,197,94,.10)',
         borderWidth: 2.5,
         pointRadius: 0,
         tension: 0.2,
@@ -64,8 +64,9 @@
         datasets.push({
           label: 'Nifty 50',
           data: niftyPts,
-          borderColor: '#888',
-          borderWidth: 1.6,
+          borderColor: '#9ca3af',
+          backgroundColor: 'rgba(156,163,175,.05)',
+          borderWidth: 1.8,
           borderDash: [6, 5],
           pointRadius: 0,
           tension: 0.2,
