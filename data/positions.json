@@ -5,12 +5,12 @@
     "buy_price_local": 372.45,
     "qty": 13425.0,
     "cost_local": 5000141.25,
-    "last_price": 444.35,
-    "last_date": "2026-06-23",
-    "market_value_local": 5965398.75,
+    "last_price": 441.75,
+    "last_date": "2026-06-24",
+    "market_value_local": 5930493.75,
     "dividends_local": 211443.75,
-    "pnl_local": 1176701.25,
-    "pnl_pct": 23.533
+    "pnl_local": 1141796.25,
+    "pnl_pct": 22.835
   },
   {
     "symbol": "KIRLOSBROS.NS",
@@ -18,11 +18,11 @@
     "buy_price_local": 1887.4,
     "qty": 2649.0,
     "cost_local": 4999722.6,
-    "last_price": 2026.8,
-    "last_date": "2026-06-23",
-    "market_value_local": 5368993.2,
+    "last_price": 2020.8,
+    "last_date": "2026-06-24",
+    "market_value_local": 5353099.2,
     "dividends_local": 0,
-    "pnl_local": 369270.6,
-    "pnl_pct": 7.386
+    "pnl_local": 353376.6,
+    "pnl_pct": 7.068
   }
 ]
