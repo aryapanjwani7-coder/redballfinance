@@ -3,14 +3,14 @@
   "starting_cash": 10000000.0,
   "inception_date": "2025-08-14",
   "latest": {
-    "date": "2026-06-24",
-    "nav": 11495172.85,
+    "date": "2026-06-25",
+    "nav": 11403831.4,
     "cash": 211579.9,
-    "holdings": 11283592.95,
+    "holdings": 11192251.5,
     "invested": 9999863.85,
     "dividends": 211443.75,
-    "pnl_abs": 1495172.85,
-    "pnl_pct": 14.952,
-    "nifty_pnl_pct": -2.475
+    "pnl_abs": 1403831.4,
+    "pnl_pct": 14.038,
+    "nifty_pnl_pct": -2.336
   }
 }
